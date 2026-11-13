@@ -18,11 +18,11 @@ def cargar_modulos(
     extras: Sequence[str] = ("agent",),
 ) -> list[str]:
     """Registra los subpaquetes de `paquete_modulos` y los `extras`; devuelve los registrados."""
-    nombres = [*_subpaquetes(paquete_modulos), *extras]
+    nombres = [*subpaquetes(paquete_modulos), *extras]
     return [nombre for nombre in nombres if _registrar(ctx, nombre)]
 
 
-def _subpaquetes(paquete: str) -> list[str]:
+def subpaquetes(paquete: str) -> list[str]:
     """Nombres completos de los subpaquetes directos de `paquete`, en orden alfabético."""
     raiz = importlib.import_module(paquete)
     return sorted(

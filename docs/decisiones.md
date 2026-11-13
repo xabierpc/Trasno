@@ -25,3 +25,9 @@ La migración `0001` de core crea el usuario `id=1` (nombre `usuario`), que coin
 SQLite no guarda zonas horarias. `core.db.TZDateTime` convierte a UTC al guardar, devuelve datetimes UTC con zona al leer y rechaza datetimes sin zona. La `logical_date` va en una columna aparte (regla 5).
 
 **Motivo:** comparar y ordenar instantes de forma correcta; la hora local se calcula al mostrar con `Settings.timezone`.
+
+## 2026-11-14 · Datos de arranque por convención de fichero
+
+`trasno migrate` aplica `upgrade head` al core y a cada `modules/<m>/infrastructure/migrations/` (si tiene `env.py`) sobre `data/<m>.sqlite`. Después, si existe `modules/<m>/infrastructure/arranque.py`, llama a su `datos_arranque(engine) -> None`. Se ejecuta en cada migrate, así que debe ser idempotente (`INSERT ... ON CONFLICT DO NOTHING` o comprobar antes). El `env.py` de cada módulo se reduce a `ejecutar_env(Base.metadata, "<m>")` de `core.migraciones`.
+
+**Motivo:** un módulo nuevo se migra sin tocar el core ni `contracts.py`, y migrar no exige cargar los módulos ni montar el `AppContext`.

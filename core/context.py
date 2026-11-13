@@ -19,7 +19,7 @@ class ContextoApp:
     engine_factory: Callable[[str], Engine]
     settings: Settings
     routers: list[APIRouter] = field(default_factory=list)
-    series_providers: list[SeriesProvider] = field(default_factory=list)
+    proveedores_series: list[SeriesProvider] = field(default_factory=list)
 
     def add_router(self, router: APIRouter) -> None:
         """Guarda el router para que la app de FastAPI lo monte."""
@@ -27,4 +27,8 @@ class ContextoApp:
 
     def add_series_provider(self, provider: SeriesProvider) -> None:
         """Guarda el proveedor para que analytics lo consulte."""
-        self.series_providers.append(provider)
+        self.proveedores_series.append(provider)
+
+    def series_providers(self) -> list[SeriesProvider]:
+        """Copia de los proveedores registrados: quien la recibe no altera el registro."""
+        return list(self.proveedores_series)

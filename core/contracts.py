@@ -89,3 +89,7 @@ class AppContext(Protocol):
     def add_series_provider(self, provider: SeriesProvider) -> None:
         """Registra un proveedor de series para analytics."""
         ...
+
+    def series_providers(self) -> list[SeriesProvider]:
+        """Devuelve los proveedores registrados hasta ahora; consúltese en cada uso."""
+        ...

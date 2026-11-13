@@ -72,3 +72,13 @@ def test_carga_los_modulos_reales_y_agent(
 
     for nombre in ("modules.analytics", "modules.planning", "modules.tracking", "agent"):
         assert nombre in caplog.text
+
+
+def test_series_providers_devuelve_los_registrados_sin_exponer_la_lista(ctx: ContextoApp) -> None:
+    proveedor = object()
+    ctx.add_series_provider(proveedor)  # type: ignore[arg-type]
+
+    vistos = ctx.series_providers()
+    vistos.clear()
+
+    assert ctx.series_providers() == [proveedor]

@@ -12,24 +12,20 @@ from datetime import date, time
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
 if TYPE_CHECKING:
     from fastapi import APIRouter
     from sqlalchemy import Engine
 
 
-class Settings(BaseSettings):
-    """Configuración global de la aplicación (variables de entorno con prefijo TRASNO_)."""
+class Settings(Protocol):
+    """Configuración global de la aplicación; la implementa `core.config.Settings`."""
 
-    model_config = SettingsConfigDict(env_prefix="TRASNO_")
-
-    data_dir: Path = Path("data")
-    user_id: int = 1
-    ventana_madrugada: tuple[time, time] = (time(0, 0), time(6, 0))
-    backup_dir: Path = Path("backups")
-    backup_retencion_dias: int = 30
-    timezone: str = "Europe/Madrid"
+    data_dir: Path
+    user_id: int
+    ventana_madrugada: tuple[time, time]
+    backup_dir: Path
+    backup_retencion_dias: int
+    timezone: str
 
 
 def make_engine(module: str) -> Engine:

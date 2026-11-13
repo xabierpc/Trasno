@@ -1,11 +1,13 @@
-"""Engines SQLite por módulo: implementa `core.contracts.make_engine`."""
+"""Engines SQLite por módulo (implementa `core.contracts.make_engine`) y tipos compartidos."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from sqlite3 import Connection as SQLiteConnection
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import DateTime, Dialect, Engine, create_engine, event
+from sqlalchemy.types import TypeDecorator
 
 from core.config import Settings
 
@@ -27,3 +29,20 @@ def _configurar_conexion(dbapi_connection: SQLiteConnection, _connection_record:
         cursor.execute("PRAGMA journal_mode=WAL")
     finally:
         cursor.close()
+
+
+class TZDateTime(TypeDecorator[datetime]):
+    """Datetime con zona: se guarda en UTC (SQLite no guarda zonas) y se lee como UTC aware."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("TZDateTime exige un datetime con zona horaria")
+        return value.astimezone(UTC).replace(tzinfo=None)
+
+    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        return None if value is None else value.replace(tzinfo=UTC)

@@ -16,6 +16,7 @@ from modules.planning.application.ports import (
     RepositorioEventos,
     RepositorioTareas,
 )
+from modules.planning.infrastructure.ics import LectorIcs
 from modules.planning.infrastructure.memoria import (
     RepositorioBloquesMemoria,
     RepositorioEventosMemoria,
@@ -67,4 +68,6 @@ def repos(request: pytest.FixtureRequest) -> Repos:
 @pytest.fixture
 def casos(repos: Repos) -> CasosUsoPlanning:
     tareas, eventos, bloques = repos
-    return CasosUsoPlanning(tareas, eventos, bloques, zona=ZONA, reloj=lambda: AHORA)
+    return CasosUsoPlanning(
+        tareas, eventos, bloques, zona=ZONA, reloj=lambda: AHORA, lector=LectorIcs(ZONA)
+    )

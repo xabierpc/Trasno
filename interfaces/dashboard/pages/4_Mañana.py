@@ -176,6 +176,32 @@ with st.expander("Nuevo evento"), st.form("nuevo_evento", clear_on_submit=True):
         avisar_solapes(guardado)
         st.rerun()
 
+# --- Importar calendario ---
+
+with st.expander("Importar calendario (.ics)"):
+    st.caption(
+        "Descarga el .ics de tu universidad o de Google Calendar y súbelo aquí. Reimportarlo "
+        "no duplica nada: actualiza lo que haya cambiado."
+    )
+    fichero = st.file_uploader("Fichero .ics", type=["ics"], key="fichero_ics")
+    if fichero is not None and st.button("Importar", key="importar_ics"):
+        resultado = llamar(
+            "POST",
+            "/planning/import/ics",
+            content=fichero.getvalue(),
+            headers={"Content-Type": "text/calendar"},
+        )
+        if resultado is not None:
+            nuevos, cambiados = resultado["nuevos"], resultado["actualizados"]
+            avisar(
+                "success",
+                f"Calendario importado: {nuevos} eventos nuevos, {cambiados} actualizados y "
+                f"{resultado['sin_cambios']} sin cambios.",
+            )
+            for motivo in resultado["omitidos"]:
+                avisar("warning", f"Omitido {motivo}")
+        st.rerun()
+
 # --- Horario semanal ---
 
 with st.expander("Clases y bloques semanales"):

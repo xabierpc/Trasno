@@ -13,6 +13,7 @@ from core.config import Settings
 from core.context import ContextoApp
 from modules.planning.api import crear_router
 from modules.planning.application.casos_uso import CasosUsoPlanning
+from modules.planning.infrastructure.ics import LectorIcs
 from tests.planning.conftest import MADRID, ZONA, Repos
 
 # Sábado 14/11/2026 a las 10:00 en Madrid
@@ -22,7 +23,7 @@ AHORA = datetime(2026, 11, 14, 10, 0, tzinfo=MADRID)
 @pytest.fixture
 def client(repos: Repos) -> TestClient:
     """API con solo el router de planning; corre contra memoria y contra SQL."""
-    casos = CasosUsoPlanning(*repos, zona=ZONA, reloj=lambda: AHORA)
+    casos = CasosUsoPlanning(*repos, zona=ZONA, reloj=lambda: AHORA, lector=LectorIcs(ZONA))
     app = FastAPI()
     app.include_router(crear_router(casos, Settings(_env_file=None), reloj=lambda: AHORA))
     return TestClient(app)
@@ -134,3 +135,21 @@ def test_bloques_listar_avisar_y_borrar(client: TestClient) -> None:
         client.post("/planning/blocks", json={"titulo": "x", **base, "dia_semana": 7}).status_code
         == 422
     )
+
+
+ICS = (
+    b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:calc\r\n"
+    b"SUMMARY:C\xc3\xa1lculo\r\nDTSTART;TZID=Europe/Madrid:20261116T090000\r\n"
+    b"DURATION:PT2H\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+)
+
+
+def test_importar_ics(client: TestClient) -> None:
+    cabecera = {"Content-Type": "text/calendar"}
+    respuesta = client.post("/planning/import/ics", content=ICS, headers=cabecera)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"nuevos": 1, "actualizados": 0, "sin_cambios": 0, "omitidos": []}
+    citas = client.get("/planning/agenda", params={"dia": "2026-11-16"}).json()["citas"]
+    assert [c["titulo"] for c in citas] == ["Cálculo"]
+    assert client.post("/planning/import/ics", content=b"hola", headers=cabecera).status_code == 422

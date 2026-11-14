@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Protocol
 
-from modules.planning.domain.eventos import BloqueRecurrente, Evento
+from modules.planning.domain.eventos import BloqueRecurrente, Evento, LecturaCalendario
 from modules.planning.domain.tareas import Tarea
 
 
@@ -76,4 +76,12 @@ class RepositorioBloques(Protocol):
 
     def borrar(self, bloque_id: str) -> bool:
         """Borra el bloque; devuelve False si no existía."""
+        ...
+
+
+class LectorCalendario(Protocol):
+    """Convierte un fichero de calendario (.ics) en eventos de planning."""
+
+    def leer(self, contenido: bytes, desde: date, hasta: date) -> LecturaCalendario:
+        """Eventos que empiezan entre `desde` y `hasta` (incluidos); lanza CalendarioInvalido."""
         ...

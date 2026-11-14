@@ -7,6 +7,7 @@ import pytest
 from modules.planning.application.casos_uso import CasosUsoPlanning
 from modules.planning.domain.errores import (
     BloqueNoEncontrado,
+    CalendarioInvalido,
     EventoNoEncontrado,
     TareaInvalida,
     TareaNoEncontrada,
@@ -155,3 +156,51 @@ def test_borrar_bloque(casos: CasosUsoPlanning):
     assert casos.agenda(LUNES).citas == []
     with pytest.raises(BloqueNoEncontrado):
         casos.borrar_bloque(bloque.id)
+
+
+# --- Importar un .ics -------------------------------------------------------------------------
+
+
+def calendario(titulo: str = "Cálculo", hora: str = "090000") -> bytes:
+    """Clase semanal los lunes desde el 16/11/2026, 3 semanas."""
+    return (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//ES\r\nBEGIN:VEVENT\r\n"
+        f"UID:calc\r\nSUMMARY:{titulo}\r\nDTSTART;TZID=Europe/Madrid:20261116T{hora}\r\n"
+        "DURATION:PT2H\r\nRRULE:FREQ=WEEKLY;COUNT=3\r\nLOCATION:A1\r\n"
+        "END:VEVENT\r\nEND:VCALENDAR\r\n"
+    ).encode()
+
+
+def test_importar_añade_las_clases_a_la_agenda(casos: CasosUsoPlanning):
+    resultado = casos.importar_calendario(calendario())
+
+    assert (resultado.nuevos, resultado.actualizados, resultado.sin_cambios) == (3, 0, 0)
+    citas = casos.agenda(date(2026, 11, 23)).citas
+    assert [(c.titulo, c.inicio.hour, c.lugar) for c in citas] == [("Cálculo", 9, "A1")]
+
+
+def test_reimportar_no_duplica_y_actualiza_lo_cambiado(casos: CasosUsoPlanning):
+    casos.importar_calendario(calendario())
+
+    igual = casos.importar_calendario(calendario())
+    assert (igual.nuevos, igual.actualizados, igual.sin_cambios) == (0, 0, 3)
+
+    cambiado = casos.importar_calendario(calendario("Cálculo I"))
+    assert (cambiado.nuevos, cambiado.actualizados) == (0, 3)
+    assert [c.titulo for c in casos.agenda(LUNES).citas] == ["Cálculo I"]
+
+
+def test_importar_avisa_de_lo_omitido(casos: CasosUsoPlanning):
+    festivo = (
+        b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:f\r\n"
+        b"SUMMARY:Festivo\r\nDTSTART;VALUE=DATE:20261208\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+    resultado = casos.importar_calendario(festivo)
+
+    assert resultado.nuevos == 0
+    assert resultado.omitidos == ["«Festivo»: es de día completo"]
+
+
+def test_importar_un_fichero_que_no_es_ics(casos: CasosUsoPlanning):
+    with pytest.raises(CalendarioInvalido):
+        casos.importar_calendario(b"hola")

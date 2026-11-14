@@ -41,3 +41,7 @@ class BloqueNoEncontrado(ErrorPlanning):
     def __init__(self, bloque_id: str) -> None:
         super().__init__(f"No existe el bloque {bloque_id!r}")
         self.bloque_id = bloque_id
+
+
+class CalendarioInvalido(ErrorPlanning):
+    """El fichero no es un calendario .ics que se pueda leer."""

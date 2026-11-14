@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from modules.planning.application.ports import (
+    LectorCalendario,
     RepositorioBloques,
     RepositorioEventos,
     RepositorioTareas,
@@ -28,6 +29,9 @@ from modules.planning.domain.eventos import (
 )
 from modules.planning.domain.tareas import Prioridad, Tarea
 
+DIAS_ATRAS = 30
+DIAS_ADELANTE = 365
+
 
 def _ahora() -> datetime:
     return datetime.now(UTC)
@@ -39,6 +43,16 @@ class EventoGuardado:
 
     evento: Evento
     avisos: list[Solape]
+
+
+@dataclass(frozen=True)
+class ResultadoImportacion:
+    """Qué ha pasado al importar un calendario: cuántos eventos nuevos, cambiados e iguales."""
+
+    nuevos: int
+    actualizados: int
+    sin_cambios: int
+    omitidos: list[str]
 
 
 @dataclass(frozen=True)
@@ -63,12 +77,14 @@ class CasosUsoPlanning:
         bloques: RepositorioBloques,
         zona: str,
         reloj: Callable[[], datetime] = _ahora,
+        lector: LectorCalendario | None = None,
     ) -> None:
         self._tareas = tareas
         self._eventos = eventos
         self._bloques = bloques
         self._zona = zona
         self._reloj = reloj
+        self._lector = lector
 
     # --- Tareas -------------------------------------------------------------------------------
 
@@ -153,6 +169,34 @@ class CasosUsoPlanning:
         for bloque in self._bloques.listar():
             existentes += bloque.ocurrencias(primer_dia, ultimo_dia, self._zona)
         return solapes(evento, existentes)
+
+    def importar_calendario(self, contenido: bytes) -> ResultadoImportacion:
+        """Importa un .ics: crea los eventos nuevos y actualiza los ya importados (por su UID).
+
+        Solo se leen los eventos desde hace `DIAS_ATRAS` hasta dentro de `DIAS_ADELANTE`.
+        Los eventos que ya no estén en el fichero no se borran.
+        """
+        if self._lector is None:
+            raise RuntimeError("CasosUsoPlanning se creó sin lector de calendarios")
+        hoy = self._reloj().astimezone(ZoneInfo(self._zona)).date()
+        lectura = self._lector.leer(
+            contenido, hoy - timedelta(days=DIAS_ATRAS), hoy + timedelta(days=DIAS_ADELANTE)
+        )
+        nuevos = actualizados = sin_cambios = 0
+        for leido in lectura.eventos:
+            assert leido.uid_externo is not None  # el lector siempre lo rellena
+            existente = self._eventos.por_uid(leido.uid_externo)
+            if existente is None:
+                self._eventos.guardar(leido)
+                nuevos += 1
+                continue
+            actualizado = replace(leido, id=existente.id)
+            if actualizado == existente:
+                sin_cambios += 1
+            else:
+                self._eventos.guardar(actualizado)
+                actualizados += 1
+        return ResultadoImportacion(nuevos, actualizados, sin_cambios, lectura.omitidos)
 
     # --- Bloques recurrentes ------------------------------------------------------------------
 

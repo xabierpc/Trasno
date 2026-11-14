@@ -140,3 +140,14 @@ Completar, reabrir y mover son rutas con verbo en lugar de un `PATCH` genérico:
 ## 2026-11-14 · Página «Mañana»
 
 Muestra la agenda de mañana por defecto (con «Hoy» y «Otro» para cambiar de día): horario del día (clases y eventos), tareas con casilla para marcarlas, atrasadas con un botón para pasarlas a ese día, y formularios para añadir tarea, evento y bloque semanal. Las acciones van en callbacks de Streamlit, que llaman a la API antes de volver a pintar; los avisos de solape se guardan en `session_state` y se enseñan en la siguiente pasada. El día de «hoy» lo da `GET /planning/agenda`, así la página no calcula fechas.
+
+## 2026-11-14 · Importar calendarios .ics
+
+`POST /planning/import/ics` recibe el fichero como cuerpo de la petición (`Content-Type: text/calendar`), sin formularios multipart, para no añadir dependencias. Lo lee `infrastructure/ics.py` (`LectorIcs`, con `icalendar` y `dateutil`) detrás del port `LectorCalendario`, así el caso de uso `importar_calendario` no sabe nada del formato.
+
+- **Ventana:** solo se importan los eventos que empiezan entre 30 días atrás y 365 días adelante. Las clases semanales (`RRULE`) se expanden en eventos sueltos dentro de esa ventana, quitando los `EXDATE` y aplicando las ocurrencias movidas o anuladas (`RECURRENCE-ID`). La hora local se conserva al cambiar al horario de verano o de invierno.
+- **Sin duplicados:** cada ocurrencia lleva `uid_externo` = UID del .ics + `@` + su instante en UTC (`calc@20261116T080000Z`). Reimportar actualiza lo que haya cambiado y deja igual el resto.
+- **No se borra nada:** si un evento desaparece del .ics, se queda en Trasno. Borrar al sincronizar es peligroso con borrado real; se decidirá si hace falta.
+- **Se omiten, avisando:** eventos de día completo (festivos), cancelados, sin UID o con el fin antes del inicio. Las horas sin zona se entienden en la zona del usuario.
+
+**Motivo:** expandir las clases en eventos (en lugar de convertirlas en bloques recurrentes) permite reflejar tal cual las excepciones del calendario oficial (festivos, cambios de aula) sin modelarlas en Trasno.

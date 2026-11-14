@@ -12,6 +12,12 @@ from core.herramientas import HerramientaInvalida, validar
 
 
 class Casos:
+    def larga(self) -> None:
+        """Primera línea
+        que sigue aquí.
+
+        Esto ya no."""
+
     def crear_tarea(self, titulo: str, fecha: date | None = None) -> str:
         """Crea una tarea pendiente.
 
@@ -38,9 +44,15 @@ def contexto() -> ContextoApp:
     )
 
 
-def test_la_descripcion_sale_de_la_primera_linea_del_docstring():
+def test_la_descripcion_es_el_primer_parrafo_del_docstring():
     tool = validar(Tool(nombre="crear_tarea", funcion=CASOS.crear_tarea))
     assert tool.descripcion == "Crea una tarea pendiente."
+
+
+def test_un_parrafo_de_varias_lineas_se_junta():
+    assert validar(Tool(nombre="larga", funcion=CASOS.larga)).descripcion == (
+        "Primera línea que sigue aquí."
+    )
 
 
 def test_una_descripcion_propia_se_respeta():

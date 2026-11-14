@@ -24,3 +24,4 @@ class Settings(BaseSettings):
     backup_dir: Path = Path("backups")
     backup_retencion_dias: int = 30
     timezone: str = "Europe/Madrid"
+    scheduler_activo: bool = True  # False: la API no ejecuta trabajos programados

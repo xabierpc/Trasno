@@ -1,0 +1,195 @@
+# Decisiones
+
+Registro de decisiones de diseño. Una entrada por decisión: fecha, decisión y motivo.
+
+## 2026-11-14 · Ventana de madrugada: 00:00-06:00
+
+Los registros con timestamp entre las 00:00 y las 06:00 (hora de `Europe/Madrid`) son ambiguos: se pregunta al usuario a qué día lógico cuentan. Es configurable en `Settings.ventana_madrugada`.
+
+**Motivo:** acostarse tarde no debe hacer que un entreno o una métrica caiga en el día siguiente sin querer.
+
+## 2026-11-14 · Log del agente en `core.sqlite`
+
+Cada herramienta que usa el agente se registra en una tabla de `core.sqlite`, no en una base de datos propia del agente.
+
+**Motivo:** el log es transversal (registra acciones sobre cualquier módulo) y lo consulta el core; así hay un único sitio para auditar lo que hizo el agente.
+
+## 2026-11-14 · Usuario único creado en la migración inicial
+
+La migración `0001` de core crea el usuario `id=1` (nombre `usuario`), que coincide con `Settings.user_id` por defecto. Todas las tablas apuntan a `user.id` con `ON DELETE CASCADE`.
+
+**Motivo:** hoy hay un solo usuario, pero las tablas ya llevan `user_id` para poder tener varios sin migrar datos.
+
+## 2026-11-14 · Timestamps en UTC con `TZDateTime`
+
+SQLite no guarda zonas horarias. `core.db.TZDateTime` convierte a UTC al guardar, devuelve datetimes UTC con zona al leer y rechaza datetimes sin zona. La `logical_date` va en una columna aparte (regla 5).
+
+**Motivo:** comparar y ordenar instantes de forma correcta; la hora local se calcula al mostrar con `Settings.timezone`.
+
+## 2026-11-14 · Datos de arranque por convención de fichero
+
+`trasno migrate` aplica `upgrade head` al core y a cada `modules/<m>/infrastructure/migrations/` (si tiene `env.py`) sobre `data/<m>.sqlite`. Después, si existe `modules/<m>/infrastructure/arranque.py`, llama a su `datos_arranque(engine) -> None`. Se ejecuta en cada migrate, así que debe ser idempotente (`INSERT ... ON CONFLICT DO NOTHING` o comprobar antes). El `env.py` de cada módulo se reduce a `ejecutar_env(Base.metadata, "<m>")` de `core.migraciones`.
+
+**Motivo:** un módulo nuevo se migra sin tocar el core ni `contracts.py`, y migrar no exige cargar los módulos ni montar el `AppContext`.
+
+## 2026-11-14 · Representación de los valores de tracking
+
+Duración en **minutos enteros**; booleana como `bool` estricto (se guardará 0/1 y así sale como serie y sirve para rachas); escala y conteo como `int`; numérica como `float`; categórica como texto, **sin serie numérica** en analytics de momento. Una categórica solo admite agregación `ultima` y no tiene objetivo.
+
+**Motivo:** encaja directamente con SQLite y con `SeriesProvider` (valores `float`); la categórica es la única que no tiene una lectura numérica obvia y se deja para cuando haga falta.
+
+## 2026-11-14 · Ventana de madrugada como helper del dominio de tracking
+
+`modules/tracking/domain/fecha_logica.py` ofrece `es_madrugada(instante, ventana, zona)` y `opciones_fecha_logica(instante, zona) -> (ayer, hoy)`. No eligen la fecha: la `logical_date` sigue siendo obligatoria en los casos de uso. La ventana puede cruzar la medianoche.
+
+**Motivo:** la página de Streamlit y el agente necesitan la misma regla para saber cuándo preguntar; así no se duplica.
+
+## 2026-11-14 · Repositorios de tracking ligados al usuario y con commit por operación
+
+Los ports (`application/ports.py`) no reciben `user_id`: cada repositorio se construye ya ligado a un usuario y filtra todas sus consultas por él. Los repositorios SQL abren una sesión por operación y hacen commit al terminar. `guardar(entrada)` es un upsert por `(metric_id, logical_date, slot)` que conserva el `id` de la entrada que ya existía.
+
+**Motivo:** los casos de uso quedan con firmas limpias para el agente (regla 11) y, como el dato ya está guardado cuando el repositorio devuelve, el evento `MetricaRegistrada` se publica después del commit sin necesidad de compartir la sesión.
+
+## 2026-11-14 · `replace` usa el slot 0 y `keep_all` el siguiente libre
+
+Con `on_duplicate=replace` la entrada va siempre al slot 0 (el segundo registro del día pisa valor y timestamp). Con `keep_all` va a `max(slot) + 1`, así que tras un borrado no se reutiliza un slot intermedio.
+
+## 2026-11-14 · Columnas de valor: `valor_num` y `valor_texto`
+
+`metric_entry` guarda el valor en `valor_num` (numérica, duración, escala, conteo y booleana como 0/1) o en `valor_texto` (categórica); un CHECK obliga a que haya exactamente una. El tipo de la métrica decide cómo se reconstruye al leer. `user_id` no lleva FK porque `user` vive en `core.sqlite`, otro fichero.
+
+## 2026-11-14 · API de tracking
+
+Rutas: `POST/GET /tracking/metrics`, `POST/GET /tracking/entries`, `DELETE /tracking/entries/{id}` y `GET /tracking/fecha-logica` (`{es_madrugada, ayer, hoy}`). `logical_date` es obligatoria al registrar: quien llama (página o agente) pregunta antes si es madrugada. Errores de dominio → HTTP: no encontrado 404, métrica duplicada 409 y el resto 422, con `{"detail": "..."}`. El router vive en `modules/tracking/api.py` y lo crea `crear_router(casos, settings)`.
+
+**Motivo:** `/tracking/fecha-logica` evita que la página de Streamlit tenga la regla de la madrugada (regla 9).
+
+## 2026-11-14 · Series de tracking
+
+Cada métrica no categórica es una serie con el mismo nombre que la métrica (`peso`). Devuelve un valor por día lógico según su agregación (`suma`, `media` o `ultima` = el slot más alto).
+
+## 2026-11-14 · Media móvil del peso calculada en el dashboard
+
+`interfaces/dashboard/graficas.py` calcula la media móvil de 7 días con una ventana por tiempo (los días sin registro no la alargan). Es presentación; cuando haga falta en el briefing o el agente se usará la de `analytics`.
+
+## 2026-11-14 · Métricas de arranque de T1
+
+Además de `peso`: `pasos` (conteo, suma, objetivo 8 000), `sueño` (duración en minutos, objetivo 420 = 7 h), `ánimo` y `energía` (escala 1-10, media) y los hábitos booleanos `leer`, `estudiar`, `meditar`, `estirar` y `entrenar`. Todas `replace`: se apunta el total del día.
+
+## 2026-11-14 · Rachas y cumplimiento
+
+Se calculan al pedirlos (`domain/rachas.py`), nunca se guardan. Un día está cumplido según la métrica: booleana → `true`; con objetivo → valor agregado del día ≥ objetivo; sin objetivo → basta con haber registrado. **Hoy nunca rompe la racha**: si aún no está cumplido se cuenta hasta ayer. El cumplimiento semanal y mensual son ventanas móviles de 7 y 30 días que terminan hoy (no semana ni mes naturales), siempre sobre 7 y 30. `racha(nombre, hoy)` exige `hoy`, igual que el resto de casos de uso exige la fecha lógica; la API lo deduce del reloj si no llega.
+
+**Motivo:** con semana natural el lunes siempre saldría «1/1»; la ventana móvil es estable y comparable de un día a otro.
+
+## 2026-11-14 · Métricas activas
+
+`metric_definition.activa` (migración 0002, por defecto `true`). Desactivar una métrica la quita del «Registro diario» pero conserva sus entradas y su serie. `GET /tracking/metrics?activas=true` filtra y `PATCH /tracking/metrics/{nombre}` cambia el estado.
+
+La migración usa `op.add_column` directo y **no** `batch_alter_table`: el modo batch recrea la tabla y, con `foreign_keys=ON`, al borrar la antigua el `ON DELETE CASCADE` se lleva todas las entradas. Regla para el futuro: nunca batch sobre una tabla que tenga hijas con cascada (o desactivar las FK durante esa migración). Hay un test de regresión que migra de 0001 a head con datos.
+
+## 2026-11-14 · Página «Registro diario»
+
+Un campo por métrica activa según su tipo; la duración se escribe en horas y se guarda en minutos. Los campos arrancan con lo registrado ese día y al guardar solo se envía lo que ha cambiado; un hábito sin marcar y sin registro previo no se envía (queda «sin registrar», no `false`). Las métricas `keep_all` empiezan vacías porque cada guardado añade una lectura. `pedir_fecha` pasa a `interfaces/dashboard/fecha.py` para compartirla entre páginas.
+
+## 2026-11-14 · Modelo de training
+
+`training.sqlite` con tres tablas: `sesion` → `ejercicio` → `serie` (FK con `ON DELETE CASCADE`, `orden` único dentro del padre). La sesión lleva `logical_date`, `tipo` (**texto libre**, guardado en minúsculas), `duracion_min` y `energia_previa` (1-10), los dos últimos opcionales. Una sesión sin ejercicios es válida (cardio). El peso de una serie puede ser 0 (peso corporal) y el RPE admite medios (1-10).
+
+Los nombres de ejercicio se normalizan en el dominio (minúsculas y un solo espacio): «Press  Banca» y «press banca» son el mismo ejercicio. No hay catálogo de ejercicios: existen los que aparecen en alguna sesión.
+
+**Motivo:** un catálogo obligaría a darlos de alta antes de entrenar; normalizar el nombre basta para que el progreso no se parta en dos.
+
+## 2026-11-14 · Cálculos de training
+
+Nada derivado se guarda. 1RM estimado con **Epley** (`peso · (1 + reps/30)`; con 1 repetición es el propio peso). Volumen = Σ reps · peso. El progreso de un ejercicio da un punto por día lógico: mejor 1RM, peso máximo y volumen del día. Récords personales por ejercicio: peso, 1RM estimado y volumen en un día; en un empate cuenta el primer día. `registrar_sesion` devuelve los récords que la sesión bate respecto a las sesiones de fecha anterior o igual; la primera vez que se hace un ejercicio no cuenta como récord.
+
+## 2026-11-14 · API y series de training
+
+Rutas: `POST/GET /training/sessions`, `DELETE /training/sessions/{id}`, `GET /training/exercises`, `GET /training/exercises/{nombre}/progress`, `GET /training/records` y `GET /training/weekly-volume`. Eventos: `SesionRegistrada` y `SesionBorrada`. Series para analytics: `volumen_semanal` (un punto por semana, fechado en su lunes; solo semanas cuyo lunes cae en el rango, siempre completas) y `1rm <ejercicio>` (mejor 1RM estimado de cada día).
+
+**Motivo:** las claves de serie son globales en analytics; el prefijo `1rm ` evita chocar con una métrica de tracking que se llame igual que un ejercicio.
+
+## 2026-11-14 · Página «Entrenos»
+
+Cada fila del formulario son N series iguales de un ejercicio (ejercicio · series · reps · peso · RPE), con 3 series por defecto; las filas del mismo ejercicio se juntan y un peso vacío cuenta como 0 (peso corporal). El ejercicio se elige de los ya registrados o se escribe uno nuevo. Tras guardar, el formulario se vacía y se avisa de los récords batidos. La fecha lógica se pide a `GET /tracking/fecha-logica`: la página es un cliente de la API, así que training no duplica la regla de la madrugada ni importa a tracking. Agrupar filas vive en `interfaces/dashboard/entrenos.py` (presentación); validar valores sigue siendo cosa del dominio.
+
+## 2026-11-14 · Dominio de planning
+
+Tres entidades: `Tarea` (título, día lógico opcional, prioridad `baja`/`media`/`alta`, estimación en minutos, estado `pendiente`/`hecha` con `hecha_en`), `Evento` (intervalo concreto con zona horaria; origen `manual` o `ics`, y los del `.ics` llevan `uid_externo` para no duplicarse al reimportar) y `BloqueRecurrente` (semanal, en hora local, con periodo `desde`/`hasta` opcional). Los bloques se expanden en `Ocurrencia`s al pedir un rango de días; las ocurrencias no se guardan.
+
+Una tarea sin día es válida (bandeja de entrada). `completar`, `reabrir` y `mover` devuelven una tarea nueva: las entidades son inmutables, como en training.
+
+Solapes: dos intervalos se solapan si comparten algún instante; tocarse (9-11 y 11-12) no cuenta. `solapes(nuevo, existentes)` devuelve avisos ordenados y nunca impide guardar (regla 7). Al editar un evento no se avisa de que se pisa consigo mismo.
+
+**Motivo:** guardar el bloque y no sus repeticiones evita miles de filas y que cambiar el horario de una asignatura obligue a editar cada semana.
+## 2026-11-14 · Persistencia y casos de uso de planning
+
+`planning.sqlite` con tres tablas independientes (`tarea`, `evento`, `bloque`), sin cascadas entre ellas. Los repositorios están ligados al usuario y `guardar` es un upsert por `id` (`session.merge`): sirve para crear y para completar, reabrir o mover. La BD repite las reglas del dominio con CHECK (prioridad, estado coherente con `hecha_en`, `fin > inicio`, día de la semana 0-6, periodo válido) y `UNIQUE(user_id, uid_externo)` para que reimportar un `.ics` no duplique eventos.
+
+`CasosUsoPlanning` recibe la zona horaria del usuario: un «día» va de las 00:00 a las 00:00 locales y los bloques se expanden en hora local. Crear o mover un evento avisa de los eventos y clases que pisa; crear un bloque avisa de los bloques que pisa (mismo día, horas y periodos que coinciden). Los avisos nunca impiden guardar.
+
+`agenda(dia)` devuelve las citas (eventos y bloques, por hora), las tareas del día (pendientes primero, después por prioridad) y las atrasadas (pendientes de días anteriores). Un evento que cruza la medianoche sale en los dos días.
+
+## 2026-11-14 · API de planning
+
+Rutas: `GET /planning/agenda?dia=` (por defecto, hoy en la zona del usuario); tareas: `POST /planning/tasks`, `GET /planning/tasks/inbox`, `POST /planning/tasks/{id}/complete|reopen|move` y `DELETE /planning/tasks/{id}`; eventos: `POST /planning/events`, `POST /planning/events/{id}/move` y `DELETE /planning/events/{id}`; bloques: `POST/GET /planning/blocks` y `DELETE /planning/blocks/{id}`. Errores: no encontrado 404, el resto de errores de dominio 422, con `{"detail": "..."}`.
+
+Completar, reabrir y mover son rutas con verbo en lugar de un `PATCH` genérico: cada una es un caso de uso y el agente las usará como herramientas separadas. Una hora **sin zona** («2026-11-16T09:00») se entiende en la zona del usuario y las horas salen siempre en esa zona, para que la página y el agente no tengan que tratar con UTC. Crear o mover un evento y crear un bloque devuelven `avisos` con los solapes.
+
+## 2026-11-14 · Página «Mañana»
+
+Muestra la agenda de mañana por defecto (con «Hoy» y «Otro» para cambiar de día): horario del día (clases y eventos), tareas con casilla para marcarlas, atrasadas con un botón para pasarlas a ese día, y formularios para añadir tarea, evento y bloque semanal. Las acciones van en callbacks de Streamlit, que llaman a la API antes de volver a pintar; los avisos de solape se guardan en `session_state` y se enseñan en la siguiente pasada. El día de «hoy» lo da `GET /planning/agenda`, así la página no calcula fechas.
+
+## 2026-11-14 · Importar calendarios .ics
+
+`POST /planning/import/ics` recibe el fichero como cuerpo de la petición (`Content-Type: text/calendar`), sin formularios multipart, para no añadir dependencias. Lo lee `infrastructure/ics.py` (`LectorIcs`, con `icalendar` y `dateutil`) detrás del port `LectorCalendario`, así el caso de uso `importar_calendario` no sabe nada del formato.
+
+- **Ventana:** solo se importan los eventos que empiezan entre 30 días atrás y 365 días adelante. Las clases semanales (`RRULE`) se expanden en eventos sueltos dentro de esa ventana, quitando los `EXDATE` y aplicando las ocurrencias movidas o anuladas (`RECURRENCE-ID`). La hora local se conserva al cambiar al horario de verano o de invierno.
+- **Sin duplicados:** cada ocurrencia lleva `uid_externo` = UID del .ics + `@` + su instante en UTC (`calc@20261116T080000Z`). Reimportar actualiza lo que haya cambiado y deja igual el resto.
+- **No se borra nada:** si un evento desaparece del .ics, se queda en Trasno. Borrar al sincronizar es peligroso con borrado real; se decidirá si hace falta.
+- **Se omiten, avisando:** eventos de día completo (festivos), cancelados, sin UID o con el fin antes del inicio. Las horas sin zona se entienden en la zona del usuario.
+
+**Motivo:** expandir las clases en eventos (en lugar de convertirlas en bloques recurrentes) permite reflejar tal cual las excepciones del calendario oficial (festivos, cambios de aula) sin modelarlas en Trasno.
+
+## 2026-11-14 · Trabajos programados (S1)
+
+Contrato: `ctx.add_job(nombre, tarea, cuando)` con dos disparadores, `CadaDia(hora, dias)` (hora local de `Settings.timezone`; `dias` 0 = lunes … 6 = domingo, vacío = todos) y `CadaIntervalo(minutos)`. Son tipos propios: los módulos no conocen APScheduler, así se puede cambiar de librería sin tocarlos.
+
+`core/scheduler.py` (`Programador`) usa un `BackgroundScheduler` en un hilo del proceso de la API: arranca y se para con ella (lifespan de FastAPI), así que **solo hay trabajos mientras la API está en marcha**. Si una ejecución se pierde (portátil suspendido), se hace una sola vez al volver si no han pasado más de 5 minutos; si no, se salta hasta la siguiente. Un trabajo que falla se registra en el log y no afecta al resto. Nombres repetidos fallan al arrancar.
+
+`GET /jobs` lista los trabajos y su próxima ejecución; `POST /jobs/{nombre}/run` ejecuta uno en el momento (para probar el briefing sin esperar). `TRASNO_SCHEDULER_ACTIVO=false` desactiva el programador.
+
+## 2026-11-14 · Briefing diario (B1)
+
+El briefing es un módulo (`modules/briefing/`) sin base de datos: no sabe nada de agenda, peso ni entrenos. Cada módulo le aporta una **sección** con el contrato `SeccionBriefing` (`titulo`, `orden`, `lineas(dia)`), que registra con `ctx.add_briefing_section`, igual que las series de analytics. Así se cumple la regla 2 (ningún módulo importa a otro) y un módulo nuevo se añade al briefing sin tocar el briefing.
+
+Secciones actuales: **Hoy** (planning: citas, tareas pendientes y número de atrasadas), **Seguimiento** (tracking: último peso de los 30 días anteriores con la media de 7 días, y rachas de hábitos activos de 2 días o más) y **Entreno** (training: último entreno de las dos semanas anteriores y sesiones de esta semana). Las secciones sin líneas se omiten, y una sección que falla sale como «no se ha podido generar» sin romper las demás.
+
+No se guarda: `GET /briefing?dia=` lo genera en el momento, con un saludo según la hora, y lo devuelve por secciones y montado en Markdown. El trabajo `briefing.diario` se ejecuta cada día a `Settings.briefing_hora` (07:30 por defecto, `TRASNO_BRIEFING_HORA`) y lo manda como notificación de escritorio con `notify-send`; si no existe, solo queda en el log. La página «Briefing» lo muestra y permite enviarlo en el momento.
+
+## 2026-11-14 · Contrato del agente (K1)
+
+- **Herramientas:** cada módulo ofrece sus casos de uso al agente con `ctx.add_tool(Tool(nombre, funcion, descripcion, requiere_confirmacion, sensible))`. Se validan **al registrarse** (`core/herramientas.py`): nombre en minúsculas con `_` (como lo piden las APIs de LLM), tipos en todos los parámetros y docstring (regla 11); la descripción por defecto es el primer párrafo del docstring. Un error sale al arrancar la API, no cuando el LLM la llama. El esquema de parámetros que ve el LLM se saca de la firma en A1.
+- **`requiere_confirmacion`:** la herramienta no se ejecuta hasta que el usuario confirma (regla 10). **`sensible`:** datos de salud o dinero; servirá para elegir un LLM local, de momento solo se marca.
+- **Log de acciones:** el agente no abre `core.sqlite`. Usa `ctx.acciones` (`RegistroAcciones`: `guardar`, `obtener`, `cambiar_estado`, `recientes`), que implementa el core sobre `agent_log`. La migración 0002 añade `estado` (`propuesta`, `ejecutada`, `cancelada`, `fallida`), así las propuestas pendientes de confirmar sobreviven a un reinicio. Las filas anteriores quedan como `ejecutada`. Sin CHECK en la BD: SQLite no permite añadirlo con `ADD COLUMN` y recrear la tabla en modo batch es lo que evitamos; lo valida `EstadoAccion` al leer.
+- **LLM:** `Settings.llm_url` y `llm_modelo`, cualquier API compatible con OpenAI. Por defecto Ollama en local (`http://localhost:11434/v1`, `qwen3:8b`); la clave, si hace falta, en keyring (servicio `trasno`, usuario `llm`).
+
+## 2026-11-14 · Agente de texto (A1)
+
+- **LLM:** un solo adaptador, `LLMOpenAICompatible` (`agent/llm_openai.py`), con `httpx` contra `POST {llm_url}/chat/completions`. Vale para Ollama (`/v1`), Groq, OpenRouter… sin dependencias nuevas; «local o API» es configuración, no código. La clave se lee de keyring en cada petición. Se quita el bloque `<think>` de los modelos que razonan en voz alta.
+- **Esquemas:** lo que ve el LLM de cada herramienta se saca de la firma de la función con Pydantic (`agent/esquemas.py`), con las referencias (`$defs`) resueltas porque no todos los modelos locales las entienden. Los argumentos del LLM se validan con el mismo modelo y se convierten a los tipos de la función («2026-11-15» → `date`); si no valen, el error vuelve al LLM para que corrija, sin ejecutar nada.
+- **Bucle:** hasta 8 llamadas al LLM por turno. Cada herramienta ejecutada queda en el log como `ejecutada` o `fallida`; las que `requiere_confirmacion` se guardan como `propuesta` y al LLM se le dice que no se han hecho. `POST /agent/confirm` las ejecuta o cancela con los argumentos guardados.
+- **Conversación sin estado en el servidor:** el cliente manda el historial (mensajes de usuario y asistente) en cada `POST /agent/chat`. Las llamadas a herramientas de un turno no se devuelven al cliente; quedan en el log (`GET /agent/actions`).
+- **Fecha:** las instrucciones de sistema llevan el día y la hora local. De madrugada se le pide que pregunte «¿ayer u hoy?» antes de registrar algo sin fecha; la ventana sale de `Settings`, sin importar el helper de tracking.
+- **Herramientas** (en `modules/<m>/application/herramientas.py`, funciones finas sobre los casos de uso que devuelven texto corto): tracking `metricas`, `registrar_metrica`, `ver_metrica` (sensibles las dos últimas); planning `agenda`, `crear_tarea`*, `completar_tarea`, `mover_tarea`, `borrar_tarea`*, `crear_evento`*, `borrar_evento`*; training `registrar_entreno`, `entrenos`. (*) piden confirmación: completar y mover una tarea se deshacen igual de fácil, crear y borrar no.
+
+## 2026-11-14 · Página «Trasno» (A2)
+
+Chat con `st.chat_message` y `st.chat_input`. El historial (solo textos de usuario y asistente) vive en `st.session_state` y se manda entero a `POST /agent/chat` en cada mensaje; «Nueva conversación» lo vacía. La petición al agente espera hasta 180 s (el cliente compartido espera 5 s), porque un modelo local puede tardar.
+
+Debajo de cada respuesta: un desplegable «Qué he hecho» con las herramientas ejecutadas y su resultado, y una tarjeta por cada propuesta con **Confirmar** y **Cancelar** (callbacks a `POST /agent/confirm`). Una vez resuelta, la tarjeta muestra cómo ha quedado en lugar de los botones. Si el agente falla (LLM caído), se muestra el error y el mensaje no se queda en el historial, para poder repetirlo.
+
+## 2026-11-14 · Hito 4 cerrado: v0.5
+
+La prueba final del hito 4 está automatizada en `tests/agente/test_api_y_h4.py` (con un LLM falso y todos los módulos reales) y se ha repetido a mano con Groq: «peso 74,3 y qué tengo hoy» registra el peso y lee la agenda; «añade la tarea estudiar cálculo para mañana» pide confirmación y, al confirmar, aparece en la página «Mañana»; `agent_log` guarda las acciones; el briefing incluye el peso; importar un `.ics` añade las clases a la agenda. `dev` se mergea en `main` con la etiqueta `v0.5`; el cierre del hito 1 se etiqueta a posteriori como `v0.1`.

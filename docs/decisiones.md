@@ -43,3 +43,31 @@ Duración en **minutos enteros**; booleana como `bool` estricto (se guardará 0/
 `modules/tracking/domain/fecha_logica.py` ofrece `es_madrugada(instante, ventana, zona)` y `opciones_fecha_logica(instante, zona) -> (ayer, hoy)`. No eligen la fecha: la `logical_date` sigue siendo obligatoria en los casos de uso. La ventana puede cruzar la medianoche.
 
 **Motivo:** la página de Streamlit y el agente necesitan la misma regla para saber cuándo preguntar; así no se duplica.
+
+## 2026-11-14 · Repositorios de tracking ligados al usuario y con commit por operación
+
+Los ports (`application/ports.py`) no reciben `user_id`: cada repositorio se construye ya ligado a un usuario y filtra todas sus consultas por él. Los repositorios SQL abren una sesión por operación y hacen commit al terminar. `guardar(entrada)` es un upsert por `(metric_id, logical_date, slot)` que conserva el `id` de la entrada que ya existía.
+
+**Motivo:** los casos de uso quedan con firmas limpias para el agente (regla 11) y, como el dato ya está guardado cuando el repositorio devuelve, el evento `MetricaRegistrada` se publica después del commit sin necesidad de compartir la sesión.
+
+## 2026-11-14 · `replace` usa el slot 0 y `keep_all` el siguiente libre
+
+Con `on_duplicate=replace` la entrada va siempre al slot 0 (el segundo registro del día pisa valor y timestamp). Con `keep_all` va a `max(slot) + 1`, así que tras un borrado no se reutiliza un slot intermedio.
+
+## 2026-11-14 · Columnas de valor: `valor_num` y `valor_texto`
+
+`metric_entry` guarda el valor en `valor_num` (numérica, duración, escala, conteo y booleana como 0/1) o en `valor_texto` (categórica); un CHECK obliga a que haya exactamente una. El tipo de la métrica decide cómo se reconstruye al leer. `user_id` no lleva FK porque `user` vive en `core.sqlite`, otro fichero.
+
+## 2026-11-14 · API de tracking
+
+Rutas: `POST/GET /tracking/metrics`, `POST/GET /tracking/entries`, `DELETE /tracking/entries/{id}` y `GET /tracking/fecha-logica` (`{es_madrugada, ayer, hoy}`). `logical_date` es obligatoria al registrar: quien llama (página o agente) pregunta antes si es madrugada. Errores de dominio → HTTP: no encontrado 404, métrica duplicada 409 y el resto 422, con `{"detail": "..."}`. El router vive en `modules/tracking/api.py` y lo crea `crear_router(casos, settings)`.
+
+**Motivo:** `/tracking/fecha-logica` evita que la página de Streamlit tenga la regla de la madrugada (regla 9).
+
+## 2026-11-14 · Series de tracking
+
+Cada métrica no categórica es una serie con el mismo nombre que la métrica (`peso`). Devuelve un valor por día lógico según su agregación (`suma`, `media` o `ultima` = el slot más alto).
+
+## 2026-11-14 · Media móvil del peso calculada en el dashboard
+
+`interfaces/dashboard/graficas.py` calcula la media móvil de 7 días con una ventana por tiempo (los días sin registro no la alargan). Es presentación; cuando haga falta en el briefing o el agente se usará la de `analytics`.

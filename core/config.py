@@ -24,4 +24,5 @@ class Settings(BaseSettings):
     backup_dir: Path = Path("backups")
     backup_retencion_dias: int = 30
     timezone: str = "Europe/Madrid"
+    briefing_hora: time = time(7, 30)
     scheduler_activo: bool = True  # False: la API no ejecuta trabajos programados

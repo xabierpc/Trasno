@@ -159,3 +159,11 @@ Contrato: `ctx.add_job(nombre, tarea, cuando)` con dos disparadores, `CadaDia(ho
 `core/scheduler.py` (`Programador`) usa un `BackgroundScheduler` en un hilo del proceso de la API: arranca y se para con ella (lifespan de FastAPI), así que **solo hay trabajos mientras la API está en marcha**. Si una ejecución se pierde (portátil suspendido), se hace una sola vez al volver si no han pasado más de 5 minutos; si no, se salta hasta la siguiente. Un trabajo que falla se registra en el log y no afecta al resto. Nombres repetidos fallan al arrancar.
 
 `GET /jobs` lista los trabajos y su próxima ejecución; `POST /jobs/{nombre}/run` ejecuta uno en el momento (para probar el briefing sin esperar). `TRASNO_SCHEDULER_ACTIVO=false` desactiva el programador.
+
+## 2026-11-14 · Briefing diario (B1)
+
+El briefing es un módulo (`modules/briefing/`) sin base de datos: no sabe nada de agenda, peso ni entrenos. Cada módulo le aporta una **sección** con el contrato `SeccionBriefing` (`titulo`, `orden`, `lineas(dia)`), que registra con `ctx.add_briefing_section`, igual que las series de analytics. Así se cumple la regla 2 (ningún módulo importa a otro) y un módulo nuevo se añade al briefing sin tocar el briefing.
+
+Secciones actuales: **Hoy** (planning: citas, tareas pendientes y número de atrasadas), **Seguimiento** (tracking: último peso de los 30 días anteriores con la media de 7 días, y rachas de hábitos activos de 2 días o más) y **Entreno** (training: último entreno de las dos semanas anteriores y sesiones de esta semana). Las secciones sin líneas se omiten, y una sección que falla sale como «no se ha podido generar» sin romper las demás.
+
+No se guarda: `GET /briefing?dia=` lo genera en el momento, con un saludo según la hora, y lo devuelve por secciones y montado en Markdown. El trabajo `briefing.diario` se ejecuta cada día a `Settings.briefing_hora` (07:30 por defecto, `TRASNO_BRIEFING_HORA`) y lo manda como notificación de escritorio con `notify-send`; si no existe, solo queda en el log. La página «Briefing» lo muestra y permite enviarlo en el momento.

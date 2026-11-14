@@ -150,3 +150,14 @@ def solapes(nuevo: Intervalo, existentes: Iterable[Intervalo]) -> list[Solape]:
     pisados = [e for e in existentes if se_solapan(nuevo, e) and not _mismo_evento(nuevo, e)]
     pisados.sort(key=lambda e: e.inicio)
     return [Solape(titulo=e.titulo, inicio=e.inicio, fin=e.fin) for e in pisados]
+
+
+def bloques_se_solapan(a: BloqueRecurrente, b: BloqueRecurrente) -> bool:
+    """Mismo día de la semana, horas que se pisan y periodos (desde/hasta) que coinciden."""
+    if a.id == b.id or a.dia_semana != b.dia_semana:
+        return False
+    if not (a.hora_inicio < b.hora_fin and b.hora_inicio < a.hora_fin):
+        return False
+    a_desde, a_hasta = a.desde or date.min, a.hasta or date.max
+    b_desde, b_hasta = b.desde or date.min, b.hasta or date.max
+    return a_desde <= b_hasta and b_desde <= a_hasta

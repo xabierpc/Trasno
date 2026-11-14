@@ -189,3 +189,7 @@ No se guarda: `GET /briefing?dia=` lo genera en el momento, con un saludo según
 Chat con `st.chat_message` y `st.chat_input`. El historial (solo textos de usuario y asistente) vive en `st.session_state` y se manda entero a `POST /agent/chat` en cada mensaje; «Nueva conversación» lo vacía. La petición al agente espera hasta 180 s (el cliente compartido espera 5 s), porque un modelo local puede tardar.
 
 Debajo de cada respuesta: un desplegable «Qué he hecho» con las herramientas ejecutadas y su resultado, y una tarjeta por cada propuesta con **Confirmar** y **Cancelar** (callbacks a `POST /agent/confirm`). Una vez resuelta, la tarjeta muestra cómo ha quedado en lugar de los botones. Si el agente falla (LLM caído), se muestra el error y el mensaje no se queda en el historial, para poder repetirlo.
+
+## 2026-11-14 · Hito 4 cerrado: v0.5
+
+La prueba final del hito 4 está automatizada en `tests/agente/test_api_y_h4.py` (con un LLM falso y todos los módulos reales) y se ha repetido a mano con Groq: «peso 74,3 y qué tengo hoy» registra el peso y lee la agenda; «añade la tarea estudiar cálculo para mañana» pide confirmación y, al confirmar, aparece en la página «Mañana»; `agent_log` guarda las acciones; el briefing incluye el peso; importar un `.ics` añade las clases a la agenda. `dev` se mergea en `main` con la etiqueta `v0.5`; el cierre del hito 1 se etiqueta a posteriori como `v0.1`.

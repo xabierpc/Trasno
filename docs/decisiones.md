@@ -123,3 +123,10 @@ Una tarea sin día es válida (bandeja de entrada). `completar`, `reabrir` y `mo
 Solapes: dos intervalos se solapan si comparten algún instante; tocarse (9-11 y 11-12) no cuenta. `solapes(nuevo, existentes)` devuelve avisos ordenados y nunca impide guardar (regla 7). Al editar un evento no se avisa de que se pisa consigo mismo.
 
 **Motivo:** guardar el bloque y no sus repeticiones evita miles de filas y que cambiar el horario de una asignatura obligue a editar cada semana.
+## 2026-11-14 · Persistencia y casos de uso de planning
+
+`planning.sqlite` con tres tablas independientes (`tarea`, `evento`, `bloque`), sin cascadas entre ellas. Los repositorios están ligados al usuario y `guardar` es un upsert por `id` (`session.merge`): sirve para crear y para completar, reabrir o mover. La BD repite las reglas del dominio con CHECK (prioridad, estado coherente con `hecha_en`, `fin > inicio`, día de la semana 0-6, periodo válido) y `UNIQUE(user_id, uid_externo)` para que reimportar un `.ics` no duplique eventos.
+
+`CasosUsoPlanning` recibe la zona horaria del usuario: un «día» va de las 00:00 a las 00:00 locales y los bloques se expanden en hora local. Crear o mover un evento avisa de los eventos y clases que pisa; crear un bloque avisa de los bloques que pisa (mismo día, horas y periodos que coinciden). Los avisos nunca impiden guardar.
+
+`agenda(dia)` devuelve las citas (eventos y bloques, por hora), las tareas del día (pendientes primero, después por prioridad) y las atrasadas (pendientes de días anteriores). Un evento que cruza la medianoche sale en los dos días.

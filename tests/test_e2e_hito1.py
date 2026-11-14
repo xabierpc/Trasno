@@ -81,7 +81,7 @@ def test_3_la_pagina_muestra_el_valor_y_la_media_movil(
     assert [t["name"] for t in json.loads(grafica.proto.spec)["data"]] == ["Peso", "Media 7 días"]
 
 
-def test_4_backup_copia_los_dos_ficheros(
+def test_4_backup_copia_core_y_tracking(
     api: TestClient, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     registrar_peso(api, 74.3, "2026-11-14")
@@ -89,7 +89,8 @@ def test_4_backup_copia_los_dos_ficheros(
     assert main(["backup"]) == 0
 
     (carpeta,) = (tmp_path / "backups").iterdir()
-    assert sorted(f.name for f in carpeta.iterdir()) == ["core.sqlite", "tracking.sqlite"]
+    copiados = {f.name for f in carpeta.iterdir()}
+    assert {"core.sqlite", "tracking.sqlite"} <= copiados
     assert "tracking.sqlite" in capsys.readouterr().out
 
 

@@ -91,3 +91,21 @@ La migración usa `op.add_column` directo y **no** `batch_alter_table`: el modo 
 ## 2026-11-14 · Página «Registro diario»
 
 Un campo por métrica activa según su tipo; la duración se escribe en horas y se guarda en minutos. Los campos arrancan con lo registrado ese día y al guardar solo se envía lo que ha cambiado; un hábito sin marcar y sin registro previo no se envía (queda «sin registrar», no `false`). Las métricas `keep_all` empiezan vacías porque cada guardado añade una lectura. `pedir_fecha` pasa a `interfaces/dashboard/fecha.py` para compartirla entre páginas.
+
+## 2026-11-14 · Modelo de training
+
+`training.sqlite` con tres tablas: `sesion` → `ejercicio` → `serie` (FK con `ON DELETE CASCADE`, `orden` único dentro del padre). La sesión lleva `logical_date`, `tipo` (**texto libre**, guardado en minúsculas), `duracion_min` y `energia_previa` (1-10), los dos últimos opcionales. Una sesión sin ejercicios es válida (cardio). El peso de una serie puede ser 0 (peso corporal) y el RPE admite medios (1-10).
+
+Los nombres de ejercicio se normalizan en el dominio (minúsculas y un solo espacio): «Press  Banca» y «press banca» son el mismo ejercicio. No hay catálogo de ejercicios: existen los que aparecen en alguna sesión.
+
+**Motivo:** un catálogo obligaría a darlos de alta antes de entrenar; normalizar el nombre basta para que el progreso no se parta en dos.
+
+## 2026-11-14 · Cálculos de training
+
+Nada derivado se guarda. 1RM estimado con **Epley** (`peso · (1 + reps/30)`; con 1 repetición es el propio peso). Volumen = Σ reps · peso. El progreso de un ejercicio da un punto por día lógico: mejor 1RM, peso máximo y volumen del día. Récords personales por ejercicio: peso, 1RM estimado y volumen en un día; en un empate cuenta el primer día. `registrar_sesion` devuelve los récords que la sesión bate respecto a las sesiones de fecha anterior o igual; la primera vez que se hace un ejercicio no cuenta como récord.
+
+## 2026-11-14 · API y series de training
+
+Rutas: `POST/GET /training/sessions`, `DELETE /training/sessions/{id}`, `GET /training/exercises`, `GET /training/exercises/{nombre}/progress`, `GET /training/records` y `GET /training/weekly-volume`. Eventos: `SesionRegistrada` y `SesionBorrada`. Series para analytics: `volumen_semanal` (un punto por semana, fechado en su lunes; solo semanas cuyo lunes cae en el rango, siempre completas) y `1rm <ejercicio>` (mejor 1RM estimado de cada día).
+
+**Motivo:** las claves de serie son globales en analytics; el prefijo `1rm ` evita chocar con una métrica de tracking que se llame igual que un ejercicio.

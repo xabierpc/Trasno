@@ -70,12 +70,14 @@ def test_carga_los_modulos_reales_y_agent(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("TRASNO_DATA_DIR", str(tmp_path))  # tracking abre su engine al registrarse
+    monkeypatch.setenv(
+        "TRASNO_DATA_DIR", str(tmp_path)
+    )  # cada módulo abre su engine al registrarse
     with caplog.at_level(logging.WARNING, logger="core.loader"):
         registrados = cargar_modulos(ctx)
 
-    assert registrados == ["modules.tracking"]
-    for nombre in ("modules.analytics", "modules.planning", "modules.training", "agent"):
+    assert registrados == ["modules.tracking", "modules.training"]
+    for nombre in ("modules.analytics", "modules.planning", "agent"):
         assert nombre in caplog.text
 
 

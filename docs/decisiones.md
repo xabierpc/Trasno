@@ -113,3 +113,13 @@ Rutas: `POST/GET /training/sessions`, `DELETE /training/sessions/{id}`, `GET /tr
 ## 2026-11-14 · Página «Entrenos»
 
 Cada fila del formulario son N series iguales de un ejercicio (ejercicio · series · reps · peso · RPE), con 3 series por defecto; las filas del mismo ejercicio se juntan y un peso vacío cuenta como 0 (peso corporal). El ejercicio se elige de los ya registrados o se escribe uno nuevo. Tras guardar, el formulario se vacía y se avisa de los récords batidos. La fecha lógica se pide a `GET /tracking/fecha-logica`: la página es un cliente de la API, así que training no duplica la regla de la madrugada ni importa a tracking. Agrupar filas vive en `interfaces/dashboard/entrenos.py` (presentación); validar valores sigue siendo cosa del dominio.
+
+## 2026-11-14 · Dominio de planning
+
+Tres entidades: `Tarea` (título, día lógico opcional, prioridad `baja`/`media`/`alta`, estimación en minutos, estado `pendiente`/`hecha` con `hecha_en`), `Evento` (intervalo concreto con zona horaria; origen `manual` o `ics`, y los del `.ics` llevan `uid_externo` para no duplicarse al reimportar) y `BloqueRecurrente` (semanal, en hora local, con periodo `desde`/`hasta` opcional). Los bloques se expanden en `Ocurrencia`s al pedir un rango de días; las ocurrencias no se guardan.
+
+Una tarea sin día es válida (bandeja de entrada). `completar`, `reabrir` y `mover` devuelven una tarea nueva: las entidades son inmutables, como en training.
+
+Solapes: dos intervalos se solapan si comparten algún instante; tocarse (9-11 y 11-12) no cuenta. `solapes(nuevo, existentes)` devuelve avisos ordenados y nunca impide guardar (regla 7). Al editar un evento no se avisa de que se pisa consigo mismo.
+
+**Motivo:** guardar el bloque y no sus repeticiones evita miles de filas y que cambiar el horario de una asignatura obligue a editar cada semana.

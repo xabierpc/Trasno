@@ -65,12 +65,17 @@ def test_modulo_sin_register_se_ignora_con_aviso(
 
 
 def test_carga_los_modulos_reales_y_agent(
-    ctx: ContextoApp, caplog: pytest.LogCaptureFixture
+    ctx: ContextoApp,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("TRASNO_DATA_DIR", str(tmp_path))  # tracking abre su engine al registrarse
     with caplog.at_level(logging.WARNING, logger="core.loader"):
-        cargar_modulos(ctx)
+        registrados = cargar_modulos(ctx)
 
-    for nombre in ("modules.analytics", "modules.planning", "modules.tracking", "agent"):
+    assert registrados == ["modules.tracking"]
+    for nombre in ("modules.analytics", "modules.planning", "modules.training", "agent"):
         assert nombre in caplog.text
 
 

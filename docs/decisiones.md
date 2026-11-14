@@ -130,3 +130,13 @@ Solapes: dos intervalos se solapan si comparten algún instante; tocarse (9-11 y
 `CasosUsoPlanning` recibe la zona horaria del usuario: un «día» va de las 00:00 a las 00:00 locales y los bloques se expanden en hora local. Crear o mover un evento avisa de los eventos y clases que pisa; crear un bloque avisa de los bloques que pisa (mismo día, horas y periodos que coinciden). Los avisos nunca impiden guardar.
 
 `agenda(dia)` devuelve las citas (eventos y bloques, por hora), las tareas del día (pendientes primero, después por prioridad) y las atrasadas (pendientes de días anteriores). Un evento que cruza la medianoche sale en los dos días.
+
+## 2026-11-14 · API de planning
+
+Rutas: `GET /planning/agenda?dia=` (por defecto, hoy en la zona del usuario); tareas: `POST /planning/tasks`, `GET /planning/tasks/inbox`, `POST /planning/tasks/{id}/complete|reopen|move` y `DELETE /planning/tasks/{id}`; eventos: `POST /planning/events`, `POST /planning/events/{id}/move` y `DELETE /planning/events/{id}`; bloques: `POST/GET /planning/blocks` y `DELETE /planning/blocks/{id}`. Errores: no encontrado 404, el resto de errores de dominio 422, con `{"detail": "..."}`.
+
+Completar, reabrir y mover son rutas con verbo en lugar de un `PATCH` genérico: cada una es un caso de uso y el agente las usará como herramientas separadas. Una hora **sin zona** («2026-11-16T09:00») se entiende en la zona del usuario y las horas salen siempre en esa zona, para que la página y el agente no tengan que tratar con UTC. Crear o mover un evento y crear un bloque devuelven `avisos` con los solapes.
+
+## 2026-11-14 · Página «Mañana»
+
+Muestra la agenda de mañana por defecto (con «Hoy» y «Otro» para cambiar de día): horario del día (clases y eventos), tareas con casilla para marcarlas, atrasadas con un botón para pasarlas a ese día, y formularios para añadir tarea, evento y bloque semanal. Las acciones van en callbacks de Streamlit, que llaman a la API antes de volver a pintar; los avisos de solape se guardan en `session_state` y se enseñan en la siguiente pasada. El día de «hoy» lo da `GET /planning/agenda`, así la página no calcula fechas.

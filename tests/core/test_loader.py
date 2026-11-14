@@ -76,8 +76,8 @@ def test_carga_los_modulos_reales_y_agent(
     with caplog.at_level(logging.WARNING, logger="core.loader"):
         registrados = cargar_modulos(ctx)
 
-    assert registrados == ["modules.tracking", "modules.training"]
-    for nombre in ("modules.analytics", "modules.planning", "agent"):
+    assert registrados == ["modules.planning", "modules.tracking", "modules.training"]
+    for nombre in ("modules.analytics", "agent"):
         assert nombre in caplog.text
 
 

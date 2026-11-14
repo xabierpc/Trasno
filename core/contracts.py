@@ -122,7 +122,7 @@ class Tool:
 
     `funcion` debe tener tipos en todos sus parámetros y un docstring: de ahí sale lo que ve el
     LLM (regla 11). `nombre` es único y solo lleva letras minúsculas, números y `_`
-    (p. ej. "crear_tarea"). `descripcion` vacía = primera línea del docstring.
+    (p. ej. "crear_tarea"). `descripcion` vacía = primer párrafo del docstring.
     """
 
     nombre: str

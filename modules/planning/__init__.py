@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from core.contracts import AppContext
 from modules.planning.api import crear_router
+from modules.planning.application.briefing import SeccionBriefingPlanning
 from modules.planning.application.casos_uso import CasosUsoPlanning
 from modules.planning.infrastructure.ics import LectorIcs
 from modules.planning.infrastructure.repositorios import (
@@ -14,7 +15,7 @@ from modules.planning.infrastructure.repositorios import (
 
 
 def register(ctx: AppContext) -> None:
-    """Enchufa planning: router /planning sobre planning.sqlite."""
+    """Enchufa planning: router /planning sobre planning.sqlite y su sección del briefing."""
     engine = ctx.engine_factory("planning")
     user_id = ctx.settings.user_id
     casos = CasosUsoPlanning(
@@ -25,3 +26,4 @@ def register(ctx: AppContext) -> None:
         lector=LectorIcs(ctx.settings.timezone),
     )
     ctx.add_router(crear_router(casos, ctx.settings))
+    ctx.add_briefing_section(SeccionBriefingPlanning(casos))

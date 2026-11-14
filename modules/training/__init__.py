@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from core.contracts import AppContext
 from modules.training.api import crear_router
+from modules.training.application.briefing import SeccionBriefingTraining
 from modules.training.application.casos_uso import CasosUsoTraining
 from modules.training.application.series import ProveedorSeriesTraining
 from modules.training.domain.eventos import SesionBorrada, SesionRegistrada
@@ -28,3 +29,4 @@ def register(ctx: AppContext) -> None:
     )
     ctx.add_router(crear_router(casos))
     ctx.add_series_provider(ProveedorSeriesTraining(casos))
+    ctx.add_briefing_section(SeccionBriefingTraining(casos))

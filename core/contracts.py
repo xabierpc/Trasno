@@ -26,6 +26,7 @@ class Settings(Protocol):
     backup_dir: Path
     backup_retencion_dias: int
     timezone: str
+    briefing_hora: time
 
 
 def make_engine(module: str) -> Engine:
@@ -75,6 +76,22 @@ class SeriesProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class SeccionBriefing(Protocol):
+    """Parte del briefing diario que aporta un módulo (p. ej. la agenda o el peso).
+
+    El briefing ordena las secciones por `orden` (menor primero) y omite las que no tengan
+    líneas. Cada línea es texto corto en Markdown, sin viñeta: la pone quien lo muestra.
+    """
+
+    titulo: str
+    orden: int
+
+    def lineas(self, dia: date) -> list[str]:
+        """Lo que el módulo quiere contar del día `dia`."""
+        ...
+
+
 @dataclass(frozen=True)
 class CadaDia:
     """Disparador diario a una hora local (zona de `Settings.timezone`).
@@ -113,6 +130,14 @@ class AppContext(Protocol):
 
     def series_providers(self) -> list[SeriesProvider]:
         """Devuelve los proveedores registrados hasta ahora; consúltese en cada uso."""
+        ...
+
+    def add_briefing_section(self, seccion: SeccionBriefing) -> None:
+        """Añade una sección al briefing diario."""
+        ...
+
+    def briefing_sections(self) -> list[SeccionBriefing]:
+        """Secciones registradas hasta ahora; consúltese en cada uso, como `series_providers`."""
         ...
 
     def add_job(self, nombre: str, tarea: Callable[[], None], cuando: Disparador) -> None:

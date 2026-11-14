@@ -74,7 +74,8 @@ def test_monta_el_router_del_modulo_falso(client: TestClient) -> None:
     assert respuesta.json() == {"pong": True}
 
 
-def test_main_escucha_solo_en_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_escucha_solo_en_localhost(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("TRASNO_DATA_DIR", str(tmp_path))  # main carga los módulos reales
     llamada: dict[str, Any] = {}
     monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: llamada.update(kwargs))
 

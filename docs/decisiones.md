@@ -183,3 +183,9 @@ No se guarda: `GET /briefing?dia=` lo genera en el momento, con un saludo según
 - **Conversación sin estado en el servidor:** el cliente manda el historial (mensajes de usuario y asistente) en cada `POST /agent/chat`. Las llamadas a herramientas de un turno no se devuelven al cliente; quedan en el log (`GET /agent/actions`).
 - **Fecha:** las instrucciones de sistema llevan el día y la hora local. De madrugada se le pide que pregunte «¿ayer u hoy?» antes de registrar algo sin fecha; la ventana sale de `Settings`, sin importar el helper de tracking.
 - **Herramientas** (en `modules/<m>/application/herramientas.py`, funciones finas sobre los casos de uso que devuelven texto corto): tracking `metricas`, `registrar_metrica`, `ver_metrica` (sensibles las dos últimas); planning `agenda`, `crear_tarea`*, `completar_tarea`, `mover_tarea`, `borrar_tarea`*, `crear_evento`*, `borrar_evento`*; training `registrar_entreno`, `entrenos`. (*) piden confirmación: completar y mover una tarea se deshacen igual de fácil, crear y borrar no.
+
+## 2026-11-14 · Página «Trasno» (A2)
+
+Chat con `st.chat_message` y `st.chat_input`. El historial (solo textos de usuario y asistente) vive en `st.session_state` y se manda entero a `POST /agent/chat` en cada mensaje; «Nueva conversación» lo vacía. La petición al agente espera hasta 180 s (el cliente compartido espera 5 s), porque un modelo local puede tardar.
+
+Debajo de cada respuesta: un desplegable «Qué he hecho» con las herramientas ejecutadas y su resultado, y una tarjeta por cada propuesta con **Confirmar** y **Cancelar** (callbacks a `POST /agent/confirm`). Una vez resuelta, la tarjeta muestra cómo ha quedado en lugar de los botones. Si el agente falla (LLM caído), se muestra el error y el mensaje no se queda en el historial, para poder repetirlo.

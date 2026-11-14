@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, time
+from datetime import date, datetime, time
+from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 if TYPE_CHECKING:
     from fastapi import APIRouter
@@ -27,6 +28,8 @@ class Settings(Protocol):
     backup_retencion_dias: int
     timezone: str
     briefing_hora: time
+    llm_url: str
+    llm_modelo: str
 
 
 def make_engine(module: str) -> Engine:
@@ -113,12 +116,76 @@ class CadaIntervalo:
 Disparador = CadaDia | CadaIntervalo
 
 
+@dataclass(frozen=True, kw_only=True)
+class Tool:
+    """Un caso de uso que el agente puede llamar.
+
+    `funcion` debe tener tipos en todos sus parámetros y un docstring: de ahí sale lo que ve el
+    LLM (regla 11). `nombre` es único y solo lleva letras minúsculas, números y `_`
+    (p. ej. "crear_tarea"). `descripcion` vacía = primera línea del docstring.
+    """
+
+    nombre: str
+    funcion: Callable[..., Any]
+    descripcion: str = ""
+    requiere_confirmacion: bool = False  # efectos que hay que confirmar: borrar, crear eventos…
+    sensible: bool = False  # datos que no deberían salir del equipo (salud, dinero)
+
+
+class EstadoAccion(StrEnum):
+    """Estado de una acción del agente. Los valores se guardan en la BD: no cambiarlos."""
+
+    PROPUESTA = "propuesta"  # espera a que el usuario la confirme
+    EJECUTADA = "ejecutada"
+    CANCELADA = "cancelada"
+    FALLIDA = "fallida"
+
+
+@dataclass(frozen=True, kw_only=True)
+class Accion:
+    """Una herramienta que el agente ha usado (o propone usar), con sus argumentos."""
+
+    herramienta: str
+    argumentos: dict[str, Any]
+    estado: EstadoAccion
+    timestamp: datetime
+    resultado: str | None = None
+    id: int | None = None  # lo asigna el registro al guardar
+
+
+class RegistroAcciones(Protocol):
+    """Log de acciones del agente en `core.sqlite`; el agente no abre esa BD directamente."""
+
+    def guardar(self, accion: Accion) -> Accion:
+        """Guarda una acción nueva y la devuelve con su `id`."""
+        ...
+
+    def obtener(self, accion_id: int) -> Accion | None:
+        """La acción con ese id, si existe."""
+        ...
+
+    def cambiar_estado(
+        self, accion_id: int, estado: EstadoAccion, resultado: str | None = None
+    ) -> Accion:
+        """Actualiza estado y resultado (p. ej. de propuesta a ejecutada) y la devuelve."""
+        ...
+
+    def recientes(self, limite: int = 50) -> list[Accion]:
+        """Las últimas acciones, de la más nueva a la más antigua."""
+        ...
+
+
 class AppContext(Protocol):
     """Lo que el core ofrece a cada módulo en `register(ctx)`."""
 
     bus: EventBus
     engine_factory: Callable[[str], Engine]
     settings: Settings
+
+    @property
+    def acciones(self) -> RegistroAcciones:
+        """Log de acciones del agente."""
+        ...
 
     def add_router(self, router: APIRouter) -> None:
         """Monta el router FastAPI del módulo en la API."""
@@ -138,6 +205,14 @@ class AppContext(Protocol):
 
     def briefing_sections(self) -> list[SeccionBriefing]:
         """Secciones registradas hasta ahora; consúltese en cada uso, como `series_providers`."""
+        ...
+
+    def add_tool(self, tool: Tool) -> None:
+        """Ofrece un caso de uso al agente. Nombres repetidos o sin docstring fallan aquí."""
+        ...
+
+    def tools(self) -> list[Tool]:
+        """Herramientas registradas hasta ahora; consúltese en cada uso."""
         ...
 
     def add_job(self, nombre: str, tarea: Callable[[], None], cuando: Disparador) -> None:

@@ -25,4 +25,8 @@ class Settings(BaseSettings):
     backup_retencion_dias: int = 30
     timezone: str = "Europe/Madrid"
     briefing_hora: time = time(7, 30)
+    # LLM del agente: cualquier API compatible con OpenAI. Por defecto, Ollama en local.
+    # La clave (si hace falta) va en keyring: servicio "trasno", usuario "llm".
+    llm_url: str = "http://localhost:11434/v1"
+    llm_modelo: str = "qwen3:8b"
     scheduler_activo: bool = True  # False: la API no ejecuta trabajos programados

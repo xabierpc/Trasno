@@ -41,6 +41,11 @@ class RepositorioMetricasSQL:
         except IntegrityError as error:
             raise MetricaDuplicada(definicion.nombre) from error
 
+    def actualizar(self, definicion: MetricDefinition) -> None:
+        nueva = _fila_definicion(definicion, self._user_id)
+        with Session(self._engine) as session, session.begin():
+            session.merge(nueva)
+
     def por_nombre(self, nombre: str) -> MetricDefinition | None:
         consulta = select(MetricDefinitionRow).where(
             MetricDefinitionRow.user_id == self._user_id, MetricDefinitionRow.nombre == nombre
@@ -138,6 +143,7 @@ def _fila_definicion(definicion: MetricDefinition, user_id: int) -> MetricDefini
         maximo=definicion.maximo,
         escala_max=definicion.escala_max,
         categorias=list(definicion.categorias),
+        activa=definicion.activa,
     )
 
 
@@ -154,6 +160,7 @@ def _definicion(fila: MetricDefinitionRow) -> MetricDefinition:
         maximo=fila.maximo,
         escala_max=fila.escala_max,
         categorias=tuple(fila.categorias),
+        activa=fila.activa,
     )
 
 

@@ -12,25 +12,11 @@ import httpx
 import streamlit as st
 
 from interfaces.dashboard.cliente import API_URL, api_client
+from interfaces.dashboard.fecha import pedir_fecha
 from interfaces.dashboard.graficas import grafica_con_media_movil
 
 METRICA = "peso"
 DIAS_GRAFICA = 90
-
-
-def pedir_fecha(fecha_logica: dict[str, object]) -> date:
-    """Pide el día al que cuenta el registro; de madrugada pregunta «¿ayer u hoy?»."""
-    ayer = date.fromisoformat(str(fecha_logica["ayer"]))
-    hoy = date.fromisoformat(str(fecha_logica["hoy"]))
-    if not fecha_logica["es_madrugada"]:
-        return st.date_input("Fecha", value=hoy, max_value=hoy, format="DD/MM/YYYY")
-    eleccion = st.radio(
-        "Es de madrugada: ¿a qué día cuenta este peso?",
-        options=[ayer, hoy],
-        format_func=lambda d: f"{'Ayer' if d == ayer else 'Hoy'} ({d:%d/%m})",
-        horizontal=True,
-    )
-    return eleccion or ayer
 
 
 st.title("Peso")
@@ -46,7 +32,7 @@ fecha_logica = respuesta.json()
 
 with st.form("registrar_peso"):
     valor = st.number_input("Peso (kg)", min_value=0.0, value=None, step=0.1, format="%.1f")
-    dia = pedir_fecha(fecha_logica)
+    dia = pedir_fecha(fecha_logica, "este peso")
     enviado = st.form_submit_button("Guardar")
 
 if enviado and valor is None:

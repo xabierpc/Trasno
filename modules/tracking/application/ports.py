@@ -18,6 +18,10 @@ class RepositorioMetricas(Protocol):
         """Inserta la definición; lanza `MetricaDuplicada` si el nombre ya existe."""
         ...
 
+    def actualizar(self, definicion: MetricDefinition) -> None:
+        """Sobrescribe la configuración de la métrica que ya existe con ese id."""
+        ...
+
     def por_nombre(self, nombre: str) -> MetricDefinition | None:
         """Devuelve la métrica con ese nombre o None."""
         ...

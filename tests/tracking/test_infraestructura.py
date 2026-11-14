@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import Engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
+import modules.tracking.infrastructure as infraestructura
+from core.db import make_engine
 from modules.tracking.domain.metricas import MetricDefinition, MetricEntry, TipoMetrica
 from modules.tracking.infrastructure.modelos import Base
 from modules.tracking.infrastructure.repositorios import (
@@ -14,6 +19,7 @@ from modules.tracking.infrastructure.repositorios import (
 )
 
 HOY = date(2026, 11, 14)
+MIGRACIONES = Path(infraestructura.__file__).parent / "migrations"
 AHORA = datetime(2026, 11, 14, 9, 30, tzinfo=UTC)
 
 INSERT_ENTRADA = text(
@@ -107,3 +113,37 @@ def test_el_timestamp_vuelve_con_zona(engine: Engine, peso: MetricDefinition) ->
     entradas.guardar(peso.crear_entrada(74.3, timestamp=AHORA, logical_date=HOY))
 
     assert entradas.listar(peso.id, HOY, HOY)[0].timestamp == AHORA
+
+
+def test_la_migracion_0002_conserva_las_metricas_y_sus_entradas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regresión: recrear metric_definition en modo batch borraba las entradas en cascada."""
+    monkeypatch.setenv("TRASNO_DATA_DIR", str(tmp_path))
+    config = Config()
+    config.set_main_option("script_location", str(MIGRACIONES))
+    engine = make_engine("tracking")
+    try:
+        with engine.begin() as conn:
+            config.attributes["connection"] = conn
+            command.upgrade(config, "0001")
+            conn.execute(
+                text(
+                    "INSERT INTO metric_definition (id, user_id, nombre, unidad, tipo, agregacion,"
+                    " on_duplicate, categorias) VALUES ('m', 1, 'peso', 'kg', 'numerica', 'media',"
+                    " 'replace', '[]')"
+                )
+            )
+            conn.execute(
+                INSERT_ENTRADA, {"id": "e", "metric_id": "m", "num": 74.3, "texto": None, "slot": 0}
+            )
+        with engine.begin() as conn:
+            config.attributes["connection"] = conn
+            command.upgrade(config, "head")
+
+        (peso,) = RepositorioMetricasSQL(engine, 1).listar()
+        assert peso.activa is True
+        entradas = RepositorioEntradasSQL(engine, 1).listar("m", date.min, date.max)
+        assert [e.valor for e in entradas] == [74.3]
+    finally:
+        engine.dispose()

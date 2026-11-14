@@ -10,6 +10,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     Float,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     MetaData,
     String,
     UniqueConstraint,
+    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -62,6 +64,7 @@ class MetricDefinitionRow(Base):
     maximo: Mapped[float | None] = mapped_column(Float)
     escala_max: Mapped[int | None] = mapped_column(Integer)
     categorias: Mapped[list[str]] = mapped_column(JSON)
+    activa: Mapped[bool] = mapped_column(Boolean, server_default=true())
 
 
 class MetricEntryRow(Base):

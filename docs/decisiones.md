@@ -31,3 +31,15 @@ SQLite no guarda zonas horarias. `core.db.TZDateTime` convierte a UTC al guardar
 `trasno migrate` aplica `upgrade head` al core y a cada `modules/<m>/infrastructure/migrations/` (si tiene `env.py`) sobre `data/<m>.sqlite`. Después, si existe `modules/<m>/infrastructure/arranque.py`, llama a su `datos_arranque(engine) -> None`. Se ejecuta en cada migrate, así que debe ser idempotente (`INSERT ... ON CONFLICT DO NOTHING` o comprobar antes). El `env.py` de cada módulo se reduce a `ejecutar_env(Base.metadata, "<m>")` de `core.migraciones`.
 
 **Motivo:** un módulo nuevo se migra sin tocar el core ni `contracts.py`, y migrar no exige cargar los módulos ni montar el `AppContext`.
+
+## 2026-11-14 · Representación de los valores de tracking
+
+Duración en **minutos enteros**; booleana como `bool` estricto (se guardará 0/1 y así sale como serie y sirve para rachas); escala y conteo como `int`; numérica como `float`; categórica como texto, **sin serie numérica** en analytics de momento. Una categórica solo admite agregación `ultima` y no tiene objetivo.
+
+**Motivo:** encaja directamente con SQLite y con `SeriesProvider` (valores `float`); la categórica es la única que no tiene una lectura numérica obvia y se deja para cuando haga falta.
+
+## 2026-11-14 · Ventana de madrugada como helper del dominio de tracking
+
+`modules/tracking/domain/fecha_logica.py` ofrece `es_madrugada(instante, ventana, zona)` y `opciones_fecha_logica(instante, zona) -> (ayer, hoy)`. No eligen la fecha: la `logical_date` sigue siendo obligatoria en los casos de uso. La ventana puede cruzar la medianoche.
+
+**Motivo:** la página de Streamlit y el agente necesitan la misma regla para saber cuándo preguntar; así no se duplica.

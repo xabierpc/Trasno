@@ -81,8 +81,9 @@ def test_carga_los_modulos_reales_y_agent(
         "modules.planning",
         "modules.tracking",
         "modules.training",
+        "agent",
     ]
-    for nombre in ("modules.analytics", "agent"):
+    for nombre in ("modules.analytics",):
         assert nombre in caplog.text
 
 

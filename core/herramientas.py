@@ -29,7 +29,8 @@ def validar(tool: Tool) -> Tool:
         raise HerramientaInvalida(f"La herramienta {tool.nombre!r} no es llamable")
 
     docstring = inspect.getdoc(tool.funcion) or ""
-    descripcion = tool.descripcion.strip() or docstring.strip().split("\n")[0]
+    primer_parrafo = " ".join(docstring.strip().split("\n\n")[0].split())
+    descripcion = tool.descripcion.strip() or primer_parrafo
     if not descripcion:
         raise HerramientaInvalida(f"La herramienta {tool.nombre!r} no tiene docstring")
 

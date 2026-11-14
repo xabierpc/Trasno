@@ -24,7 +24,7 @@ def herramientas_tracking(casos: CasosUsoTracking) -> list[Tool]:
         lineas = [
             f"- {m.nombre}: {m.tipo.value}"
             + (f" en {m.unidad}" if m.unidad else "")
-            + (f" (1-{m.escala_max})" if m.escala_max else "")
+            + (f" (1-{m.escala_max})" if m.escala_max and not m.unidad else "")
             for m in casos.listar_metricas(solo_activas=True)
         ]
         return "\n".join(lineas) or "No hay métricas."

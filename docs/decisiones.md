@@ -151,3 +151,11 @@ Muestra la agenda de mañana por defecto (con «Hoy» y «Otro» para cambiar de
 - **Se omiten, avisando:** eventos de día completo (festivos), cancelados, sin UID o con el fin antes del inicio. Las horas sin zona se entienden en la zona del usuario.
 
 **Motivo:** expandir las clases en eventos (en lugar de convertirlas en bloques recurrentes) permite reflejar tal cual las excepciones del calendario oficial (festivos, cambios de aula) sin modelarlas en Trasno.
+
+## 2026-11-14 · Trabajos programados (S1)
+
+Contrato: `ctx.add_job(nombre, tarea, cuando)` con dos disparadores, `CadaDia(hora, dias)` (hora local de `Settings.timezone`; `dias` 0 = lunes … 6 = domingo, vacío = todos) y `CadaIntervalo(minutos)`. Son tipos propios: los módulos no conocen APScheduler, así se puede cambiar de librería sin tocarlos.
+
+`core/scheduler.py` (`Programador`) usa un `BackgroundScheduler` en un hilo del proceso de la API: arranca y se para con ella (lifespan de FastAPI), así que **solo hay trabajos mientras la API está en marcha**. Si una ejecución se pierde (portátil suspendido), se hace una sola vez al volver si no han pasado más de 5 minutos; si no, se salta hasta la siguiente. Un trabajo que falla se registra en el log y no afecta al resto. Nombres repetidos fallan al arrancar.
+
+`GET /jobs` lista los trabajos y su próxima ejecución; `POST /jobs/{nombre}/run` ejecuta uno en el momento (para probar el briefing sin esperar). `TRASNO_SCHEDULER_ACTIVO=false` desactiva el programador.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -15,6 +15,7 @@ from core.context import ContextoApp
 from modules.tracking.api import crear_router
 from modules.tracking.application.casos_uso import CasosUsoTracking
 from modules.tracking.domain.eventos import MetricaRegistrada
+from modules.tracking.domain.metricas import TipoMetrica
 from modules.tracking.infrastructure.memoria import (
     RepositorioEntradasMemoria,
     RepositorioMetricasMemoria,
@@ -170,3 +171,47 @@ def test_fecha_logica_avisa_de_la_madrugada(
     respuesta = TestClient(app).get("/tracking/fecha-logica")
 
     assert respuesta.json() == {"es_madrugada": madrugada, "ayer": ayer, "hoy": hoy}
+
+
+def test_racha_por_api_con_hoy_explicito(client: TestClient) -> None:
+    client.post("/tracking/metrics", json={"nombre": "leer", "tipo": "booleana"})
+    for dia, hecho in [("2026-11-11", True), ("2026-11-12", False), ("2026-11-13", True)]:
+        cuerpo = {"metric": "leer", "valor": hecho, "logical_date": dia}
+        assert client.post("/tracking/entries", json=cuerpo).status_code == 201
+
+    racha = client.get("/tracking/metrics/leer/racha", params={"hoy": "2026-11-14"})
+
+    assert racha.status_code == 200
+    assert racha.json() == {
+        "metric": "leer",
+        "actual": 1,
+        "maxima": 1,
+        "semanal": {"cumplidos": 2, "dias": 7, "porcentaje": 28.6},
+        "mensual": {"cumplidos": 2, "dias": 30, "porcentaje": 6.7},
+    }
+    assert client.get("/tracking/metrics/nada/racha").status_code == 404
+
+
+def test_racha_sin_hoy_usa_la_fecha_local_del_reloj() -> None:
+    casos = CasosUsoTracking(RepositorioMetricasMemoria(), RepositorioEntradasMemoria())
+    casos.crear_metrica("leer", "", TipoMetrica.BOOLEANA)
+    casos.registrar_metrica("leer", True, date(2026, 11, 15))
+    app = FastAPI()
+    # 23:30 UTC del día 14 ya es el día 15 en Madrid
+    ahora = datetime(2026, 11, 14, 23, 30, tzinfo=UTC)
+    app.include_router(crear_router(casos, Settings(_env_file=None), reloj=lambda: ahora))
+
+    assert TestClient(app).get("/tracking/metrics/leer/racha").json()["actual"] == 1
+
+
+def test_desactivar_y_filtrar_metricas_activas(client: TestClient) -> None:
+    client.post("/tracking/metrics", json=PESO)
+    client.post("/tracking/metrics", json={"nombre": "leer", "tipo": "booleana"})
+
+    cambiada = client.patch("/tracking/metrics/leer", json={"activa": False})
+
+    assert cambiada.status_code == 200 and cambiada.json()["activa"] is False
+    activas = client.get("/tracking/metrics", params={"activas": True}).json()
+    assert [m["nombre"] for m in activas] == ["peso"]
+    assert [m["activa"] for m in client.get("/tracking/metrics").json()] == [False, True]
+    assert client.patch("/tracking/metrics/nada", json={"activa": False}).status_code == 404

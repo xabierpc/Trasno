@@ -95,6 +95,7 @@ class MetricDefinition:
     maximo: float | None = None
     escala_max: int | None = None
     categorias: tuple[str, ...] = ()
+    activa: bool = True  # una métrica inactiva conserva sus datos pero no se pide a diario
     id: str = field(default_factory=_nuevo_id)
 
     def __post_init__(self) -> None:

@@ -26,6 +26,7 @@ from modules.tracking.domain.metricas import (
     PoliticaDuplicado,
     TipoMetrica,
 )
+from modules.tracking.domain.rachas import Cumplimiento, ResumenRacha
 
 Valor = StrictBool | StrictInt | StrictFloat | StrictStr
 
@@ -43,12 +44,37 @@ class MetricaEntrada(BaseModel):
     maximo: float | None = None
     escala_max: int | None = None
     categorias: list[str] = []
+    activa: bool = True
 
 
 class MetricaSalida(MetricaEntrada):
     """Una métrica tal como la devuelve la API."""
 
     id: str
+
+
+class MetricaCambios(BaseModel):
+    """Cuerpo de PATCH /tracking/metrics/{nombre}."""
+
+    activa: bool
+
+
+class CumplimientoSalida(BaseModel):
+    """Días cumplidos dentro de una ventana que termina hoy."""
+
+    cumplidos: int
+    dias: int
+    porcentaje: float
+
+
+class RachaSalida(BaseModel):
+    """Racha y cumplimiento de una métrica (se calculan al pedirlos)."""
+
+    metric: str
+    actual: int
+    maxima: int
+    semanal: CumplimientoSalida
+    mensual: CumplimientoSalida
 
 
 class RegistroEntrada(BaseModel):
@@ -122,9 +148,20 @@ def crear_router(
         return _metrica(casos.crear_metrica(**campos))
 
     @router.get("/metrics")
-    def listar_metricas() -> list[MetricaSalida]:
-        """Lista las métricas definidas."""
-        return [_metrica(m) for m in casos.listar_metricas()]
+    def listar_metricas(activas: bool = False) -> list[MetricaSalida]:
+        """Lista las métricas definidas; con `activas=true`, solo las activas."""
+        return [_metrica(m) for m in casos.listar_metricas(solo_activas=activas)]
+
+    @router.patch("/metrics/{nombre}")
+    def cambiar_metrica(nombre: str, cambios: MetricaCambios) -> MetricaSalida:
+        """Activa o desactiva una métrica (sus entradas se conservan)."""
+        return _metrica(casos.activar_metrica(nombre, cambios.activa))
+
+    @router.get("/metrics/{nombre}/racha")
+    def racha(nombre: str, hoy: date | None = None) -> RachaSalida:
+        """Racha actual y máxima y cumplimiento de 7 y 30 días; `hoy` es la fecha lógica."""
+        dia = hoy or opciones_fecha_logica(reloj(), settings.timezone)[1]
+        return _racha(casos.racha(nombre, dia))
 
     @router.post("/entries", status_code=status.HTTP_201_CREATED)
     def registrar(datos: RegistroEntrada) -> RegistroSalida:
@@ -170,6 +207,7 @@ def _metrica(definicion: MetricDefinition) -> MetricaSalida:
         maximo=definicion.maximo,
         escala_max=definicion.escala_max,
         categorias=list(definicion.categorias),
+        activa=definicion.activa,
     )
 
 
@@ -182,3 +220,17 @@ def _registro(entrada: MetricEntry, metrica: str) -> RegistroSalida:
         logical_date=entrada.logical_date,
         slot=entrada.slot,
     )
+
+
+def _racha(resumen: ResumenRacha) -> RachaSalida:
+    return RachaSalida(
+        metric=resumen.metrica,
+        actual=resumen.racha.actual,
+        maxima=resumen.racha.maxima,
+        semanal=_cumplimiento(resumen.semanal),
+        mensual=_cumplimiento(resumen.mensual),
+    )
+
+
+def _cumplimiento(c: Cumplimiento) -> CumplimientoSalida:
+    return CumplimientoSalida(cumplidos=c.cumplidos, dias=c.dias, porcentaje=c.porcentaje)

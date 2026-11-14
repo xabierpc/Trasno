@@ -71,3 +71,23 @@ Cada métrica no categórica es una serie con el mismo nombre que la métrica (`
 ## 2026-11-14 · Media móvil del peso calculada en el dashboard
 
 `interfaces/dashboard/graficas.py` calcula la media móvil de 7 días con una ventana por tiempo (los días sin registro no la alargan). Es presentación; cuando haga falta en el briefing o el agente se usará la de `analytics`.
+
+## 2026-11-14 · Métricas de arranque de T1
+
+Además de `peso`: `pasos` (conteo, suma, objetivo 8 000), `sueño` (duración en minutos, objetivo 420 = 7 h), `ánimo` y `energía` (escala 1-10, media) y los hábitos booleanos `leer`, `estudiar`, `meditar`, `estirar` y `entrenar`. Todas `replace`: se apunta el total del día.
+
+## 2026-11-14 · Rachas y cumplimiento
+
+Se calculan al pedirlos (`domain/rachas.py`), nunca se guardan. Un día está cumplido según la métrica: booleana → `true`; con objetivo → valor agregado del día ≥ objetivo; sin objetivo → basta con haber registrado. **Hoy nunca rompe la racha**: si aún no está cumplido se cuenta hasta ayer. El cumplimiento semanal y mensual son ventanas móviles de 7 y 30 días que terminan hoy (no semana ni mes naturales), siempre sobre 7 y 30. `racha(nombre, hoy)` exige `hoy`, igual que el resto de casos de uso exige la fecha lógica; la API lo deduce del reloj si no llega.
+
+**Motivo:** con semana natural el lunes siempre saldría «1/1»; la ventana móvil es estable y comparable de un día a otro.
+
+## 2026-11-14 · Métricas activas
+
+`metric_definition.activa` (migración 0002, por defecto `true`). Desactivar una métrica la quita del «Registro diario» pero conserva sus entradas y su serie. `GET /tracking/metrics?activas=true` filtra y `PATCH /tracking/metrics/{nombre}` cambia el estado.
+
+La migración usa `op.add_column` directo y **no** `batch_alter_table`: el modo batch recrea la tabla y, con `foreign_keys=ON`, al borrar la antigua el `ON DELETE CASCADE` se lleva todas las entradas. Regla para el futuro: nunca batch sobre una tabla que tenga hijas con cascada (o desactivar las FK durante esa migración). Hay un test de regresión que migra de 0001 a head con datos.
+
+## 2026-11-14 · Página «Registro diario»
+
+Un campo por métrica activa según su tipo; la duración se escribe en horas y se guarda en minutos. Los campos arrancan con lo registrado ese día y al guardar solo se envía lo que ha cambiado; un hábito sin marcar y sin registro previo no se envía (queda «sin registrar», no `false`). Las métricas `keep_all` empiezan vacías porque cada guardado añade una lectura. `pedir_fecha` pasa a `interfaces/dashboard/fecha.py` para compartirla entre páginas.

@@ -22,6 +22,9 @@ class RepositorioMetricasMemoria:
             raise MetricaDuplicada(definicion.nombre)
         self._por_nombre[definicion.nombre] = definicion
 
+    def actualizar(self, definicion: MetricDefinition) -> None:
+        self._por_nombre[definicion.nombre] = definicion
+
     def por_nombre(self, nombre: str) -> MetricDefinition | None:
         return self._por_nombre.get(nombre)
 

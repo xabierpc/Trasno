@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, date, datetime
 
 from modules.tracking.application.ports import RepositorioEntradas, RepositorioMetricas
@@ -18,6 +19,7 @@ from modules.tracking.domain.metricas import (
     PoliticaDuplicado,
     TipoMetrica,
 )
+from modules.tracking.domain.rachas import ResumenRacha, resumir_racha
 
 
 def _ahora() -> datetime:
@@ -51,6 +53,7 @@ class CasosUsoTracking:
         maximo: float | None = None,
         escala_max: int | None = None,
         categorias: tuple[str, ...] = (),
+        activa: bool = True,
     ) -> MetricDefinition:
         """Crea una métrica nueva; el nombre no puede repetirse."""
         if self._metricas.por_nombre(nombre) is not None:
@@ -66,13 +69,20 @@ class CasosUsoTracking:
             maximo=maximo,
             escala_max=escala_max,
             categorias=categorias,
+            activa=activa,
         )
         self._metricas.guardar(definicion)
         return definicion
 
-    def listar_metricas(self) -> list[MetricDefinition]:
-        """Devuelve todas las métricas definidas, por orden alfabético."""
-        return self._metricas.listar()
+    def listar_metricas(self, solo_activas: bool = False) -> list[MetricDefinition]:
+        """Devuelve las métricas definidas (o solo las activas), por orden alfabético."""
+        return [m for m in self._metricas.listar() if m.activa or not solo_activas]
+
+    def activar_metrica(self, nombre: str, activa: bool) -> MetricDefinition:
+        """Activa o desactiva una métrica; desactivarla no borra sus entradas."""
+        definicion = replace(self._definicion(nombre), activa=activa)
+        self._metricas.actualizar(definicion)
+        return definicion
 
     def registrar_metrica(
         self,
@@ -104,6 +114,12 @@ class CasosUsoTracking:
         """Borra una entrada por su identificador (borrado real)."""
         if not self._entradas.borrar(entrada_id):
             raise EntradaNoEncontrada(entrada_id)
+
+    def racha(self, nombre: str, hoy: date) -> ResumenRacha:
+        """Racha actual y máxima de la métrica y su cumplimiento de 7 y 30 días hasta `hoy`."""
+        definicion = self._definicion(nombre)
+        entradas = self._entradas.listar(definicion.id, date.min, hoy)
+        return resumir_racha(definicion, entradas, hoy)
 
     def _definicion(self, nombre: str) -> MetricDefinition:
         definicion = self._metricas.por_nombre(nombre)

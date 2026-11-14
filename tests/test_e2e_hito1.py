@@ -98,6 +98,6 @@ def test_5_analytics_devuelve_la_serie_peso(api: TestClient) -> None:
     registrar_peso(api, 74.3, "2026-11-14")
     catalogo = CatalogoSeries(api.app.state.ctx.series_providers)
 
-    assert [s.nombre for s in catalogo.listar()] == ["peso"]
+    assert "peso" in [s.nombre for s in catalogo.listar()]
     puntos = catalogo.obtener("peso", date(2026, 11, 1), date(2026, 11, 30))
     assert puntos == [(date(2026, 11, 13), 75.0), (date(2026, 11, 14), 74.3)]

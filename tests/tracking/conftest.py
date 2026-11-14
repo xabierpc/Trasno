@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from core.db import make_engine
 from core.migraciones import migrar_todo
@@ -26,13 +26,21 @@ AHORA = datetime(2026, 11, 14, 9, 30, tzinfo=UTC)
 
 
 @pytest.fixture
-def engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Engine]:
-    """Engine de un tracking.sqlite temporal, creado con las migraciones reales."""
+def engine_migrado(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Engine]:
+    """Engine de un tracking.sqlite temporal tal como lo deja `trasno migrate`."""
     monkeypatch.setenv("TRASNO_DATA_DIR", str(tmp_path))
     migrar_todo()
     engine = make_engine("tracking")
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def engine(engine_migrado: Engine) -> Engine:
+    """El mismo engine, pero sin los datos de arranque: cada test parte de cero."""
+    with engine_migrado.begin() as conn:
+        conn.execute(text("DELETE FROM metric_definition"))
+    return engine_migrado
 
 
 @pytest.fixture(params=["memoria", "sql"])

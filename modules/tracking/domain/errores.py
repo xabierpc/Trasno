@@ -34,3 +34,27 @@ class ValorFueraDeRango(ValorInvalido):
 
 class CategoriaDesconocida(ValorInvalido):
     """La categoría no está entre las definidas para la métrica."""
+
+
+class MetricaNoEncontrada(ErrorTracking):
+    """No existe ninguna métrica con ese nombre."""
+
+    def __init__(self, nombre: str) -> None:
+        super().__init__(f"No existe la métrica {nombre!r}")
+        self.nombre = nombre
+
+
+class MetricaDuplicada(ErrorTracking):
+    """Ya existe una métrica con ese nombre."""
+
+    def __init__(self, nombre: str) -> None:
+        super().__init__(f"Ya existe la métrica {nombre!r}")
+        self.nombre = nombre
+
+
+class EntradaNoEncontrada(ErrorTracking):
+    """No existe ninguna entrada con ese identificador."""
+
+    def __init__(self, entrada_id: str) -> None:
+        super().__init__(f"No existe la entrada {entrada_id!r}")
+        self.entrada_id = entrada_id

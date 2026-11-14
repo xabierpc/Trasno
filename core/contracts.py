@@ -75,6 +75,27 @@ class SeriesProvider(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class CadaDia:
+    """Disparador diario a una hora local (zona de `Settings.timezone`).
+
+    `dias` limita los días de la semana (0 = lunes … 6 = domingo); vacío = todos los días.
+    """
+
+    hora: time
+    dias: frozenset[int] = frozenset()
+
+
+@dataclass(frozen=True)
+class CadaIntervalo:
+    """Disparador periódico: cada `minutos` minutos desde que arranca la aplicación."""
+
+    minutos: int
+
+
+Disparador = CadaDia | CadaIntervalo
+
+
 class AppContext(Protocol):
     """Lo que el core ofrece a cada módulo en `register(ctx)`."""
 
@@ -92,4 +113,12 @@ class AppContext(Protocol):
 
     def series_providers(self) -> list[SeriesProvider]:
         """Devuelve los proveedores registrados hasta ahora; consúltese en cada uso."""
+        ...
+
+    def add_job(self, nombre: str, tarea: Callable[[], None], cuando: Disparador) -> None:
+        """Programa `tarea` para que se ejecute según `cuando` mientras la API esté en marcha.
+
+        `nombre` es único en toda la aplicación (p. ej. "planning.recordatorios"). Si la tarea
+        lanza una excepción se registra en el log y el resto de trabajos siguen funcionando.
+        """
         ...

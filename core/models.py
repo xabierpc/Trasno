@@ -48,7 +48,7 @@ class Setting(Base):
 
 
 class AgentLog(Base):
-    """Registro de cada herramienta que ejecuta el agente."""
+    """Registro de cada herramienta que el agente ejecuta o propone ejecutar."""
 
     __tablename__ = "agent_log"
 
@@ -58,3 +58,5 @@ class AgentLog(Base):
     argumentos: Mapped[dict[str, Any]] = mapped_column(JSON)
     resultado: Mapped[str | None] = mapped_column(Text)
     timestamp: Mapped[datetime] = mapped_column(TZDateTime, index=True)
+    # propuesta | ejecutada | cancelada | fallida (core.contracts.EstadoAccion)
+    estado: Mapped[str] = mapped_column(String(12), server_default="ejecutada")

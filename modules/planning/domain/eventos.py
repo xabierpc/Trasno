@@ -161,3 +161,11 @@ def bloques_se_solapan(a: BloqueRecurrente, b: BloqueRecurrente) -> bool:
     a_desde, a_hasta = a.desde or date.min, a.hasta or date.max
     b_desde, b_hasta = b.desde or date.min, b.hasta or date.max
     return a_desde <= b_hasta and b_desde <= a_hasta
+
+
+@dataclass
+class LecturaCalendario:
+    """Lo leído de un calendario externo (.ics): sus eventos y por qué se ha omitido el resto."""
+
+    eventos: list[Evento] = field(default_factory=list)
+    omitidos: list[str] = field(default_factory=list)

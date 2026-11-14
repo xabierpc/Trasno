@@ -5,6 +5,7 @@ from __future__ import annotations
 from core.contracts import AppContext
 from modules.planning.api import crear_router
 from modules.planning.application.casos_uso import CasosUsoPlanning
+from modules.planning.infrastructure.ics import LectorIcs
 from modules.planning.infrastructure.repositorios import (
     RepositorioBloquesSQL,
     RepositorioEventosSQL,
@@ -21,5 +22,6 @@ def register(ctx: AppContext) -> None:
         RepositorioEventosSQL(engine, user_id),
         RepositorioBloquesSQL(engine, user_id),
         zona=ctx.settings.timezone,
+        lector=LectorIcs(ctx.settings.timezone),
     )
     ctx.add_router(crear_router(casos, ctx.settings))

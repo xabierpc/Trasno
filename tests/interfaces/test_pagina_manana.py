@@ -15,6 +15,7 @@ from core.config import Settings
 from interfaces.dashboard import cliente
 from modules.planning.api import crear_router
 from modules.planning.application.casos_uso import CasosUsoPlanning
+from modules.planning.infrastructure.ics import LectorIcs
 from modules.planning.infrastructure.memoria import (
     RepositorioBloquesMemoria,
     RepositorioEventosMemoria,
@@ -43,6 +44,7 @@ def casos() -> CasosUsoPlanning:
         RepositorioBloquesMemoria(),
         zona=ZONA,
         reloj=lambda: AHORA,
+        lector=LectorIcs(ZONA),
     )
 
 
@@ -61,6 +63,11 @@ def abrir(casos: CasosUsoPlanning, monkeypatch: pytest.MonkeyPatch) -> Callable[
 
 def textos(at: AppTest) -> str:
     return "\n".join(m.value for m in at.markdown)
+
+
+def test_hay_un_apartado_para_importar_ics(abrir: Callable[[], AppTest]):
+    at = abrir()
+    assert "Importar calendario (.ics)" in [e.label for e in at.expander]
 
 
 def test_por_defecto_enseña_mañana(abrir: Callable[[], AppTest], casos: CasosUsoPlanning):

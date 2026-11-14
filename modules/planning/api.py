@@ -115,6 +115,15 @@ class BloqueGuardadoSalida(BaseModel):
     avisos: list[BloqueSalida]
 
 
+class ImportacionSalida(BaseModel):
+    """Resultado de importar un .ics."""
+
+    nuevos: int
+    actualizados: int
+    sin_cambios: int
+    omitidos: list[str]
+
+
 class CitaSalida(BaseModel):
     titulo: str
     inicio: datetime
@@ -241,6 +250,17 @@ def crear_router(
     def borrar_evento(evento_id: str) -> None:
         """Borra un evento (borrado real)."""
         casos.borrar_evento(evento_id)
+
+    @router.post("/import/ics")
+    async def importar_ics(request: Request) -> ImportacionSalida:
+        """Importa un calendario .ics enviado como cuerpo de la petición (text/calendar)."""
+        resultado = casos.importar_calendario(await request.body())
+        return ImportacionSalida(
+            nuevos=resultado.nuevos,
+            actualizados=resultado.actualizados,
+            sin_cambios=resultado.sin_cambios,
+            omitidos=resultado.omitidos,
+        )
 
     # --- Bloques recurrentes ---
 

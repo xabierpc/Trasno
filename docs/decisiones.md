@@ -109,3 +109,7 @@ Nada derivado se guarda. 1RM estimado con **Epley** (`peso · (1 + reps/30)`; co
 Rutas: `POST/GET /training/sessions`, `DELETE /training/sessions/{id}`, `GET /training/exercises`, `GET /training/exercises/{nombre}/progress`, `GET /training/records` y `GET /training/weekly-volume`. Eventos: `SesionRegistrada` y `SesionBorrada`. Series para analytics: `volumen_semanal` (un punto por semana, fechado en su lunes; solo semanas cuyo lunes cae en el rango, siempre completas) y `1rm <ejercicio>` (mejor 1RM estimado de cada día).
 
 **Motivo:** las claves de serie son globales en analytics; el prefijo `1rm ` evita chocar con una métrica de tracking que se llame igual que un ejercicio.
+
+## 2026-11-14 · Página «Entrenos»
+
+Cada fila del formulario son N series iguales de un ejercicio (ejercicio · series · reps · peso · RPE), con 3 series por defecto; las filas del mismo ejercicio se juntan y un peso vacío cuenta como 0 (peso corporal). El ejercicio se elige de los ya registrados o se escribe uno nuevo. Tras guardar, el formulario se vacía y se avisa de los récords batidos. La fecha lógica se pide a `GET /tracking/fecha-logica`: la página es un cliente de la API, así que training no duplica la regla de la madrugada ni importa a tracking. Agrupar filas vive en `interfaces/dashboard/entrenos.py` (presentación); validar valores sigue siendo cosa del dominio.

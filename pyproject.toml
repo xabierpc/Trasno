@@ -1,17 +1,9 @@
 [project]
 name = "trasno"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-authors = [
-    { name = "xabier.pcabanas", email = "xabier.pcabanas@udc.es" }
+description = "Jarvis personal modular: cada funcionalidad es un modulo que se puede activar, desactivar o borrar"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit>=1.37",
+    "pandas>=2.0",
 ]
-requires-python = ">=3.12"
-dependencies = []
-
-[project.scripts]
-trasno = "trasno:main"
-
-[build-system]
-requires = ["uv_build>=0.12.21,<0.13.0"]
-build-backend = "uv_build"

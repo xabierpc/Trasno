@@ -76,3 +76,17 @@ CREATE TABLE IF NOT EXISTS registro_cardio (
     distancia_m     REAL    CHECK (distancia_m IS NULL OR distancia_m >= 0),
     notas           TEXT
 );
+
+-- ---------- PR APUNTADOS A MANO (version 2 del esquema) ----------
+-- Marcas de antes de usar Trasno. Los PR "de verdad" se calculan juntando
+-- estas filas con serie_fuerza; aqui no se guarda ningun PR calculado.
+CREATE TABLE IF NOT EXISTS pr_manual (
+    id              INTEGER PRIMARY KEY,
+    user_id         INTEGER NOT NULL,
+    ejercicio_id    INTEGER NOT NULL REFERENCES ejercicio(id) ON DELETE CASCADE,
+    fecha           TEXT    NOT NULL,
+    reps            INTEGER NOT NULL CHECK (reps >= 1),
+    peso_kg         REAL    NOT NULL CHECK (peso_kg > 0),
+    notas           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pr_manual_user_ej ON pr_manual (user_id, ejercicio_id);

@@ -6,7 +6,7 @@ from nucleo.contrato import Modulo
 class Asistente(Modulo):
     nombre = "asistente"
     titulo = "Asistente"
-    icono = "🤖"
+    icono = ""
     # Los recordatorios enlazados a tareas solo si jarvis.obtener("agenda") no es None.
 
     def pagina(self, jarvis):

@@ -1,12 +1,15 @@
 """Interfaz Streamlit del nucleo: menu, portada, ajustes y pregunta de madrugada.
 
-Cada modulo dibuja su propia pagina; aqui solo se monta el marco.
+Cada carpeta de modulos/ es una pagina propia (st.navigation) con su URL.
+El nucleo no conoce ningun modulo concreto: crea una pagina por cada modulo
+activo que le da el Jarvis y la pagina llama a modulo.pagina(jarvis).
 """
 
 from datetime import datetime
 
 import streamlit as st
 
+from nucleo import avisos
 from nucleo.fechas import es_madrugada, opciones_de_dia
 from nucleo.jarvis import Jarvis
 
@@ -39,7 +42,7 @@ def portada(jarvis):
     if len(resumen) == 0:
         st.info("Todavía no hay nada registrado hoy.")
     for modulo, texto in resumen:
-        st.write(modulo.icono + " **" + modulo.titulo + ":** " + texto)
+        st.write("**" + modulo.titulo + ":** " + texto)
 
 
 def ajustes(jarvis):
@@ -47,7 +50,7 @@ def ajustes(jarvis):
     st.subheader("Módulos")
     for nombre in sorted(jarvis.modulos):
         modulo = jarvis.modulos[nombre]
-        etiqueta = modulo.icono + " " + modulo.titulo
+        etiqueta = modulo.titulo
         if len(modulo.dependencias) > 0:
             etiqueta = etiqueta + " (necesita: " + ", ".join(modulo.dependencias) + ")"
         actual = jarvis.esta_activo(nombre)
@@ -70,22 +73,29 @@ def ajustes(jarvis):
         jarvis.guardar_config("metricas.sobrescribir", valor)
 
 
+def pagina_de_modulo(jarvis, modulo):
+    """Una pagina de Streamlit por carpeta de modulos/, con su propia URL (/<nombre>)."""
+
+    def dibujar():
+        modulo.pagina(jarvis)
+
+    return st.Page(dibujar, title=modulo.titulo, icon=modulo.icono or None, url_path=modulo.nombre)
+
+
 def ejecutar():
     st.set_page_config(page_title="Trasno", layout="wide")
     jarvis = obtener_jarvis()
+
+    inicio = st.Page(lambda: portada(jarvis), title=INICIO, url_path="inicio", default=True)
+    pagina_ajustes = st.Page(lambda: ajustes(jarvis), title=AJUSTES, url_path="ajustes")
+    paginas_modulos = [pagina_de_modulo(jarvis, modulo) for modulo in jarvis.activos()]
+
+    secciones = {"Trasno": [inicio]}
+    if len(paginas_modulos) > 0:
+        secciones["Módulos"] = paginas_modulos
+    secciones["Sistema"] = [pagina_ajustes]
+    navegacion = st.navigation(secciones)
+
     jarvis.fecha_activa = elegir_fecha(jarvis)
-
-    activos = jarvis.activos()
-    por_titulo = {}
-    for modulo in activos:
-        por_titulo[modulo.icono + " " + modulo.titulo] = modulo
-
-    opciones = [INICIO] + list(por_titulo) + [AJUSTES]
-    eleccion = st.sidebar.radio("Menú", opciones)
-
-    if eleccion == INICIO:
-        portada(jarvis)
-    elif eleccion == AJUSTES:
-        ajustes(jarvis)
-    else:
-        por_titulo[eleccion].pagina(jarvis)
+    avisos.mostrar()
+    navegacion.run()

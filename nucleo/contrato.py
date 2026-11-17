@@ -11,7 +11,7 @@ from nucleo.db import aplicar_esquema
 class Modulo:
     nombre = ""              # identificador; tambien es el nombre de su .db
     titulo = ""              # lo que se ve en el menu
-    icono = ""
+    icono = ""               # opcional; vacio = sin icono en el menu
     dependencias = ()        # modulos imprescindibles; sin ellos no se carga
     version_esquema = 1
 

@@ -19,12 +19,17 @@ def conectar(nombre):
 
 
 def aplicar_esquema(nombre, ruta_sql, version):
-    """Crea las tablas si la BD es nueva. La version se guarda en PRAGMA user_version."""
+    """Crea las tablas si faltan. La version se guarda en PRAGMA user_version.
+
+    Si la BD es de una version anterior se vuelve a ejecutar el schema.sql:
+    como todo es CREATE ... IF NOT EXISTS, solo se crean las tablas nuevas.
+    (Sirve para cambios que anaden tablas; cambiar columnas necesitaria migracion.)
+    """
     sql = ruta_sql.read_text(encoding="utf-8")
     conexion = conectar(nombre)
     try:
         actual = conexion.execute("PRAGMA user_version").fetchone()[0]
-        if actual == 0:
+        if actual < version:
             conexion.executescript(sql)
             conexion.execute("PRAGMA user_version = " + str(int(version)))
         elif actual > version:

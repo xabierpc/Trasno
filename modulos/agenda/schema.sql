@@ -27,3 +27,12 @@ CREATE TABLE IF NOT EXISTS evento (
 );
 -- Sin restriccion de solape: se avisa desde el servicio pero se guarda.
 CREATE INDEX IF NOT EXISTS idx_evento_user_inicio ON evento (user_id, inicio);
+
+-- Dias marcados en el calendario (version 2 del esquema).
+CREATE TABLE IF NOT EXISTS dia_importante (
+    id          INTEGER PRIMARY KEY,
+    user_id     INTEGER NOT NULL,
+    fecha       TEXT    NOT NULL,               -- 'YYYY-MM-DD'
+    nota        TEXT,
+    UNIQUE (user_id, fecha)
+);

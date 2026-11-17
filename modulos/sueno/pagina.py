@@ -16,7 +16,7 @@ def valor_previo(previo, columna, defecto):
 
 
 def dibujar(jarvis, modulo):
-    st.title(modulo.icono + " " + modulo.titulo)
+    st.title(modulo.titulo)
     fecha = jarvis.fecha_activa
     previo = servicio.del_dia(jarvis, fecha)
 

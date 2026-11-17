@@ -6,7 +6,7 @@ from nucleo.contrato import Modulo
 class Peso(Modulo):
     nombre = "peso"
     titulo = "Peso"
-    icono = "⚖️"
+    icono = ""
 
     def pagina(self, jarvis):
         from modulos.peso import pagina

@@ -4,6 +4,6 @@ version = "0.1.0"
 description = "Jarvis personal modular: cada funcionalidad es un modulo que se puede activar, desactivar o borrar"
 requires-python = ">=3.10"
 dependencies = [
-    "streamlit>=1.37",
+    "streamlit>=1.50",
     "pandas>=2.0",
 ]

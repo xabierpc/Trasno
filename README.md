@@ -5,7 +5,7 @@ Jarvis personal con Streamlit. Arquitectura de **plugins (microkernel)**: un nú
 ## Arrancar
 
 ```bash
-uv sync            # o: pip install streamlit pandas
+uv sync            # o: pip install "streamlit>=1.50" pandas
 uv run streamlit run app.py
 ```
 
@@ -17,14 +17,17 @@ Las bases de datos se crean solas en `data/` (una por módulo + `core.db`).
 app.py              punto de entrada
 nucleo/             siempre presente
   jarvis.py         carga módulos, configuración, coordina
-  interfaz.py       marco Streamlit: menú, portada, ajustes, pregunta de madrugada
+  interfaz.py       marco Streamlit: una página (st.navigation) por módulo activo,
+                    portada, ajustes, pregunta de madrugada
+  avisos.py         mensajes que sobreviven a st.rerun()
+  fechas.py         regla de madrugada y utilidades de fechas
   registro.py       descubre los módulos de modulos/
   contrato.py       clase Modulo que cumple todo plugin
   db.py, core.sql   core.db: usuario, configuración, módulos activos
   metricas.py       utilidad común para métricas diarias
 modulos/<nombre>/   un plugin
   modulo.py         ficha para el núcleo (crear(carpeta) -> Modulo)
-  pagina.py         pantalla Streamlit       (presentación)
+  pagina.py         pantalla Streamlit       (presentación) -> URL /<nombre>
   servicio.py       reglas de negocio        (dominio)
   repositorio.py    SQL                      (datos)
   schema.sql        tablas de <nombre>.db

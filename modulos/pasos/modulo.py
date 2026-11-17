@@ -6,7 +6,7 @@ from nucleo.contrato import Modulo
 class Pasos(Modulo):
     nombre = "pasos"
     titulo = "Pasos"
-    icono = "👟"
+    icono = ""
 
     def pagina(self, jarvis):
         from modulos.pasos import pagina

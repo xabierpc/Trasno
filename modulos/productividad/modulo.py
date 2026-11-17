@@ -6,7 +6,7 @@ from nucleo.contrato import Modulo
 class Productividad(Modulo):
     nombre = "productividad"
     titulo = "Horas productivas"
-    icono = "⏱️"
+    icono = ""
     # Usa la agenda si existe: jarvis.obtener("agenda") devuelve None si no.
 
     def pagina(self, jarvis):

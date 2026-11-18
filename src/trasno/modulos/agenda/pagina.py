@@ -264,3 +264,53 @@ def panel_dia(jarvis, dia, importantes):
         elif marcado:
             servicio.desmarcar_importante(jarvis, dia)
             _guardado("Día desmarcado")
+
+
+# ======================================================================
+# Bloque de Inicio (lo llama Agenda.inicio desde la portada)
+# ======================================================================
+def bloque_inicio(jarvis, fecha):
+    datos = servicio.tareas_para_inicio(jarvis, fecha)
+    hoy = datos["hoy"]
+    hechas = len([t for t in hoy if t["estado"] == "hecha"])
+    st.subheader("Tareas")
+    if len(hoy) > 0:
+        st.caption(str(hechas) + " de " + str(len(hoy)) + " hechas")
+        st.progress(hechas / len(hoy))
+    else:
+        st.caption("Nada planificado para hoy.")
+    for tarea in hoy:
+        casilla_inicio(jarvis, tarea, fecha)
+    st.text_input(
+        "Nueva tarea", key="inicio_nueva_tarea", label_visibility="collapsed",
+        placeholder="+ Nueva tarea para hoy (Enter)",
+        on_change=_anadir, args=(jarvis, fecha, "inicio_nueva_tarea"),
+    )
+
+    if len(datos["arrastradas"]) > 0:
+        st.markdown("##### Arrastradas")
+        for tarea in datos["arrastradas"]:
+            casilla_inicio(jarvis, tarea, fecha)
+
+
+def casilla_inicio(jarvis, tarea, fecha):
+    """Casilla de hecha con el titulo; debajo, de que dia viene o si vence."""
+    clave = "inicio_hecha_" + str(tarea["id"]) + "_" + tarea["estado"]
+    etiqueta = tarea["titulo"]
+    if tarea["estado"] in ("hecha", "cancelada"):
+        etiqueta = "~~" + etiqueta + "~~"
+    detalle = []
+    if tarea["fecha"] is not None and tarea["fecha"] < fecha:
+        detalle.append("del " + dia_bonito(tarea["fecha"]))
+    if tarea["fecha_limite"] is not None:
+        if tarea["fecha_limite"] < fecha:
+            detalle.append("venció el " + dia_bonito(tarea["fecha_limite"]))
+        elif tarea["fecha_limite"] == fecha:
+            detalle.append("vence hoy")
+    st.checkbox(
+        etiqueta, value=tarea["estado"] == "hecha", key=clave,
+        on_change=_marcar, args=(jarvis, tarea["id"], clave),
+        disabled=tarea["estado"] == "cancelada",
+    )
+    if detalle:
+        st.caption(" · ".join(detalle))

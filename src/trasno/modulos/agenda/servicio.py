@@ -202,6 +202,17 @@ def horario_de_semana(jarvis, lunes):
     return semana
 
 
+def tareas_para_inicio(jarvis, fecha):
+    """Lo que hay que hacer: las de ese dia (planificadas o que vencen) y las arrastradas.
+
+    Las hechas o canceladas de hoy se quedan (tachadas) para ver el progreso del dia.
+    """
+    return {
+        "hoy": repositorio.tareas_del_dia(jarvis.user_id, fecha),
+        "arrastradas": repositorio.tareas_atrasadas(jarvis.user_id, fecha),
+    }
+
+
 # ---------- dias importantes ----------
 def marcar_importante(jarvis, fecha, nota=None):
     repositorio.marcar_dia(jarvis.user_id, _iso(fecha), _texto(nota))

@@ -202,3 +202,33 @@ def pestana_excepciones(jarvis):
         if col_boton.button("Quitar", key="borrar_excepcion_" + str(excepcion["id"]), help="Quitar excepción"):
             servicio.borrar_excepcion(jarvis, excepcion["id"])
             _guardado("Excepción quitada")
+
+
+# ======================================================================
+# Bloque de Inicio (lo llama Horario.inicio desde la portada)
+# ======================================================================
+def bloque_inicio(jarvis, fecha):
+    st.subheader("Horario de hoy")
+    bloques = servicio.bloques_del_dia(jarvis, fecha)
+    if len(bloques) == 0:
+        st.caption("Sin clase ni trabajo.")
+        return
+    for bloque in bloques:
+        horas = "**" + bloque["hora_inicio"] + "–" + bloque["hora_fin"] + "**"
+        texto = horas + " · " + bloque["titulo"]
+        if bloque["cancelado"]:
+            texto = "~~" + texto + "~~"
+        st.markdown(texto)
+        detalle = []
+        if bloque["cancelado"]:
+            detalle.append("cancelado")
+        elif bloque["modificado"]:
+            detalle.append("cambio de hora")
+        if bloque["motivo"]:
+            detalle.append(bloque["motivo"])
+        if bloque["ubicacion"] and not bloque["cancelado"]:
+            detalle.append(bloque["ubicacion"])
+        if detalle:
+            st.caption(" · ".join(detalle))
+    horas = servicio.horas_del_dia(jarvis, fecha)
+    st.caption("Total: " + ("%g" % round(horas, 2)) + " h")

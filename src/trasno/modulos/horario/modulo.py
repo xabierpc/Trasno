@@ -12,6 +12,12 @@ class Horario(Modulo):
         from trasno.modulos.horario import pagina
         pagina.dibujar(jarvis, self)
 
+    orden_inicio = 20
+
+    def inicio(self, jarvis, fecha):
+        from trasno.modulos.horario import pagina
+        pagina.bloque_inicio(jarvis, fecha)
+
     def resumen_diario(self, jarvis, fecha):
         from trasno.modulos.horario import servicio
         return servicio.resumen(jarvis, fecha)

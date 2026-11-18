@@ -14,6 +14,12 @@ class Agenda(Modulo):
         from trasno.modulos.agenda import pagina
         pagina.dibujar(jarvis, self)
 
+    orden_inicio = 10
+
+    def inicio(self, jarvis, fecha):
+        from trasno.modulos.agenda import pagina
+        pagina.bloque_inicio(jarvis, fecha)
+
     def resumen_diario(self, jarvis, fecha):
         from trasno.modulos.agenda import servicio
         return servicio.resumen(jarvis, fecha)

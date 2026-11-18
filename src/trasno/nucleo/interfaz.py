@@ -10,7 +10,7 @@ from datetime import datetime
 import streamlit as st
 
 from trasno.nucleo import avisos
-from trasno.nucleo.fechas import es_madrugada, opciones_de_dia
+from trasno.nucleo.fechas import dia_bonito, es_madrugada, opciones_de_dia
 from trasno.nucleo.jarvis import Jarvis
 
 INICIO = "Inicio"
@@ -36,13 +36,18 @@ def elegir_fecha(jarvis):
 
 
 def portada(jarvis):
+    """Inicio: cada modulo activo que implementa inicio() dibuja su bloque en una columna."""
     st.title("Trasno")
-    st.caption("Día activo: " + jarvis.fecha_activa)
-    resumen = jarvis.resumen_del_dia(jarvis.fecha_activa)
-    if len(resumen) == 0:
-        st.info("Todavía no hay nada registrado hoy.")
-    for modulo, texto in resumen:
-        st.write("**" + modulo.titulo + ":** " + texto)
+    st.caption("Día activo: " + dia_bonito(jarvis.fecha_activa))
+    bloques = [m for m in jarvis.activos() if m.tiene_inicio()]
+    bloques.sort(key=lambda m: m.orden_inicio)
+    if len(bloques) == 0:
+        st.info("Ningún módulo activo tiene nada que mostrar aquí. Actívalos en Ajustes.")
+        return
+    columnas = st.columns(len(bloques), gap="large")
+    for columna, modulo in zip(columnas, bloques):
+        with columna:
+            modulo.inicio(jarvis, jarvis.fecha_activa)
 
 
 def ajustes(jarvis):

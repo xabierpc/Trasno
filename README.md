@@ -47,4 +47,4 @@ modulos/<nombre>/   un plugin
 
 ## Añadir un módulo
 
-Copiar la carpeta de uno existente (p. ej. `modulos/pasos/`), cambiar nombre, tabla y campos. El núcleo lo detecta al arrancar.
+Copiar la carpeta de uno existente (p. ej. `modulos/peso/`), cambiar nombre, tabla y campos. El núcleo lo detecta al arrancar.
